@@ -56,7 +56,9 @@ Los workers tienen registros de rendimiento para diferentes códecs
 
 
 LISTADO DE TABLAS
+
 SOURCE_FILES Almacena información de archivos de video originales
+
 source_file_id - BIGINT - Identificador único - CLAVE PRIMARIA
 filename - VARCHAR(255) - Nombre del archivo
 file_path - VARCHAR(500) - Ruta del archivo - UNIQUE
@@ -74,7 +76,9 @@ container_format - VARCHAR(20) - Formato contenedor
 metadata_json - JSON - Metadatos adicionales
 created_at - TIMESTAMP - Fecha creación
 updated_at - TIMESTAMP - Fecha actualización
+
 ENCODING_PROFILES Define perfiles de codificación disponibles
+
 profile_id - INT - Identificador único - CLAVE PRIMARIA
 profile_name - VARCHAR(100) - Nombre del perfil - UNIQUE
 target_codec - VARCHAR(50) - Códec destino
@@ -108,7 +112,9 @@ last_heartbeat - TIMESTAMP - Último heartbeat
 worker_type - ENUM - Tipo worker
 created_at - TIMESTAMP - Fecha creación
 updated_at - TIMESTAMP - Fecha actualización
+
 ENCODING_JOBS Tabla central que gestiona trabajos de codificación
+
 job_id - BIGINT - Identificador único - CLAVE PRIMARIA
 source_file_id - BIGINT - Referencia archivo - CLAVE FORÁNEA → source_files
 profile_id - INT - Referencia perfil - CLAVE FORÁNEA → encoding_profiles
@@ -127,7 +133,9 @@ error_message - TEXT - Mensaje error
 progress_percentage - DECIMAL(5,2) - Porcentaje progreso
 created_at - TIMESTAMP - Fecha creación
 updated_at - TIMESTAMP - Fecha actualización
+
 TRANSCODED_OUTPUTS Archivos generados tras codificación
+
 output_id - BIGINT - Identificador único - CLAVE PRIMARIA
 job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs
 output_filename - VARCHAR(255) - Nombre archivo generado
@@ -152,7 +160,9 @@ audio_quality_score - DECIMAL(5,2) - Calidad audio
 analysis_timestamp - TIMESTAMP - Momento análisis
 metric_version - VARCHAR(20) - Versión algoritmo
 analysis_duration_seconds - INT - Tiempo análisis
+
 FFMPEG_COMMANDS Comandos FFmpeg utilizados
+
 command_id - BIGINT - Identificador único - CLAVE PRIMARIA
 job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs, UNIQUE
 full_command_string - TEXT - Comando completo
@@ -165,7 +175,9 @@ thread_count - TINYINT - Número hilos
 memory_usage_mb - INT - Uso memoria
 command_version - VARCHAR(20) - Versión comando
 created_at - TIMESTAMP - Fecha creación
+
 PROCESSING_ERRORS Errores durante procesamiento
+
 error_id - BIGINT - Identificador único - CLAVE PRIMARIA
 job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs
 error_code - VARCHAR(50) - Código error
