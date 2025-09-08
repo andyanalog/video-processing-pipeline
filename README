@@ -1,0 +1,196 @@
+Video Processing Pipeline
+
+El proyecto consiste en el desarrollo de una base de datos para un Sistema de Procesamiento de Video que automatiza la transcodificación y conversión de archivos multimedia. Este sistema permite recibir videos en diversos formatos, procesarlos según diferentes perfiles de calidad y generar múltiples versiones optimizadas para distintos dispositivos y plataformas de streaming.
+
+Objetivo
+El objetivo principal es diseñar e implementar una base de datos que permita:
+
+Gestión de archivos fuente: Almacenar metadatos de videos originales
+Control de trabajos de codificación: Administrar la cola de procesamiento
+Seguimiento de calidad: Registrar métricas de rendimiento y calidad
+Monitoreo de recursos: Controlar la utilización de servidores de procesamiento
+Trazabilidad completa: Desde el archivo original hasta las versiones finales
+
+SITUACIÓN PROBLEMÁTICA
+
+Necesidad del Negocio
+Las empresas de streaming y producción multimedia enfrentan el desafío de procesar grandes volúmenes de contenido de video para múltiples plataformas. Sin un sistema de base de datos estructurado, surgen problemas como:
+
+Pérdida de trazabilidad en el procesamiento de archivos
+Duplicación de trabajo por falta de control de estado
+Ineficiencia en la asignación de recursos computacionales
+Dificultad para medir calidad y rendimiento del procesamiento
+Falta de visibilidad en los tiempos de procesamiento
+
+Solución Propuesta
+La implementación de esta base de datos permite:
+
+Centralizar toda la información del pipeline de procesamiento
+Automatizar la gestión de colas de trabajo
+Proporcionar métricas detalladas de calidad y rendimiento
+Optimizar la utilización de recursos computacionales
+
+MODELO DE NEGOCIO
+
+Descripción de la Organización
+El sistema está diseñado para organizaciones que manejan procesamiento de video a gran escala:
+
+Tipos de Usuarios
+OTTs: Suben videos originales a la plataforma
+System Administrators: Configuran perfiles de codificación y monitorean workers
+Quality Analysts: Revisan métricas de calidad y rendimiento
+Flujo de Trabajo
+
+Ingesta: Los archivos de video se cargan y analizan automáticamente
+Encolado: Se crean trabajos de codificación según perfiles activos
+Procesamiento: Workers disponibles procesan los videos
+Análisis: Se calculan métricas de calidad para cada salida
+Distribución: Los archivos procesados están listos para distribución
+
+
+Relaciones Principales
+Un archivo fuente puede generar múltiples trabajos de codificación
+Cada trabajo se asigna a un worker y usa un perfil específico
+Cada trabajo genera una salida transcodificada con métricas de calidad
+Los workers tienen registros de rendimiento para diferentes códecs
+
+
+LISTADO DE TABLAS
+SOURCE_FILES Almacena información de archivos de video originales
+source_file_id - BIGINT - Identificador único - CLAVE PRIMARIA
+filename - VARCHAR(255) - Nombre del archivo
+file_path - VARCHAR(500) - Ruta del archivo - UNIQUE
+file_size_bytes - BIGINT - Tamaño en bytes
+duration_seconds - DECIMAL(10,3) - Duración del video
+upload_timestamp - TIMESTAMP - Fecha de carga
+checksum_md5 - CHAR(32) - Hash MD5 - UNIQUE
+original_codec - VARCHAR(50) - Códec original
+original_resolution - VARCHAR(20) - Resolución original
+original_bitrate - BIGINT - Bitrate original
+original_framerate - DECIMAL(5,2) - FPS original
+audio_channels - TINYINT - Canales de audio
+audio_sample_rate - INT - Frecuencia de audio
+container_format - VARCHAR(20) - Formato contenedor
+metadata_json - JSON - Metadatos adicionales
+created_at - TIMESTAMP - Fecha creación
+updated_at - TIMESTAMP - Fecha actualización
+ENCODING_PROFILES Define perfiles de codificación disponibles
+profile_id - INT - Identificador único - CLAVE PRIMARIA
+profile_name - VARCHAR(100) - Nombre del perfil - UNIQUE
+target_codec - VARCHAR(50) - Códec destino
+target_resolution - VARCHAR(20) - Resolución objetivo
+target_bitrate - BIGINT - Bitrate objetivo
+target_framerate - DECIMAL(5,2) - FPS objetivo
+audio_codec - VARCHAR(50) - Códec de audio
+audio_bitrate - INT - Bitrate de audio
+container_format - VARCHAR(20) - Formato final
+ffmpeg_preset - VARCHAR(20) - Preset FFmpeg
+quality_setting - DECIMAL(4,2) - Configuración calidad
+profile_description - TEXT - Descripción
+created_date - TIMESTAMP - Fecha creación
+is_active - BOOLEAN - Perfil activo
+created_at - TIMESTAMP - Fecha creación
+updated_at - TIMESTAMP - Fecha actualización
+
+PROCESSING_WORKERS Servidores disponibles para procesamiento
+worker_id - INT - Identificador único - CLAVE PRIMARIA
+worker_name - VARCHAR(100) - Nombre del worker - UNIQUE
+server_hostname - VARCHAR(255) - Nombre servidor
+cpu_cores - TINYINT - Núcleos CPU
+ram_gb - SMALLINT - Memoria RAM en GB
+gpu_model - VARCHAR(100) - Modelo GPU
+gpu_memory_gb - SMALLINT - Memoria GPU en GB
+max_concurrent_jobs - TINYINT - Máximo trabajos concurrentes
+current_load - TINYINT - Carga actual
+worker_status - ENUM - Estado worker
+supported_codecs - JSON - Códecs soportados
+last_heartbeat - TIMESTAMP - Último heartbeat
+worker_type - ENUM - Tipo worker
+created_at - TIMESTAMP - Fecha creación
+updated_at - TIMESTAMP - Fecha actualización
+ENCODING_JOBS Tabla central que gestiona trabajos de codificación
+job_id - BIGINT - Identificador único - CLAVE PRIMARIA
+source_file_id - BIGINT - Referencia archivo - CLAVE FORÁNEA → source_files
+profile_id - INT - Referencia perfil - CLAVE FORÁNEA → encoding_profiles
+worker_id - INT - Worker asignado - CLAVE FORÁNEA → processing_workers
+job_priority - TINYINT - Prioridad trabajo
+job_status - ENUM - Estado trabajo
+queued_timestamp - TIMESTAMP - Momento encolado
+started_timestamp - TIMESTAMP - Momento inicio
+completed_timestamp - TIMESTAMP - Momento finalización
+estimated_duration - INT - Duración estimada
+actual_duration - INT - Duración real
+retry_count - TINYINT - Número reintentos
+max_retries - TINYINT - Máximo reintentos
+created_by_user - VARCHAR(100) - Usuario creador
+error_message - TEXT - Mensaje error
+progress_percentage - DECIMAL(5,2) - Porcentaje progreso
+created_at - TIMESTAMP - Fecha creación
+updated_at - TIMESTAMP - Fecha actualización
+TRANSCODED_OUTPUTS Archivos generados tras codificación
+output_id - BIGINT - Identificador único - CLAVE PRIMARIA
+job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs
+output_filename - VARCHAR(255) - Nombre archivo generado
+output_path - VARCHAR(500) - Ruta archivo - UNIQUE
+output_size_bytes - BIGINT - Tamaño en bytes
+actual_bitrate - BIGINT - Bitrate real
+actual_resolution - VARCHAR(20) - Resolución real
+actual_framerate - DECIMAL(5,2) - FPS real
+encoding_time_seconds - INT - Tiempo codificación
+compression_ratio - DECIMAL(8,4) - Ratio compresión
+output_checksum - CHAR(32) - Hash MD5 - UNIQUE
+created_at - TIMESTAMP - Fecha creación
+QUALITY_METRICS Métricas de calidad calculadas
+metric_id - BIGINT - Identificador único - CLAVE PRIMARIA
+output_id - BIGINT - Referencia salida - CLAVE FORÁNEA → transcoded_outputs
+psnr_value - DECIMAL(6,3) - Valor PSNR
+ssim_value - DECIMAL(6,4) - Valor SSIM
+vmaf_score - DECIMAL(6,3) - Puntuación VMAF
+bitrate_efficiency - DECIMAL(8,4) - Eficiencia bitrate
+visual_quality_score - DECIMAL(5,2) - Calidad visual
+audio_quality_score - DECIMAL(5,2) - Calidad audio
+analysis_timestamp - TIMESTAMP - Momento análisis
+metric_version - VARCHAR(20) - Versión algoritmo
+analysis_duration_seconds - INT - Tiempo análisis
+FFMPEG_COMMANDS Comandos FFmpeg utilizados
+command_id - BIGINT - Identificador único - CLAVE PRIMARIA
+job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs, UNIQUE
+full_command_string - TEXT - Comando completo
+input_filters - JSON - Filtros entrada
+video_filters - JSON - Filtros video
+audio_filters - JSON - Filtros audio
+output_parameters - JSON - Parámetros salida
+hardware_acceleration - VARCHAR(50) - Aceleración hardware
+thread_count - TINYINT - Número hilos
+memory_usage_mb - INT - Uso memoria
+command_version - VARCHAR(20) - Versión comando
+created_at - TIMESTAMP - Fecha creación
+PROCESSING_ERRORS Errores durante procesamiento
+error_id - BIGINT - Identificador único - CLAVE PRIMARIA
+job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs
+error_code - VARCHAR(50) - Código error
+error_message - TEXT - Mensaje error
+error_timestamp - TIMESTAMP - Momento error
+ffmpeg_output - TEXT - Salida FFmpeg
+system_resources_at_error - JSON - Estado recursos
+recovery_action - VARCHAR(100) - Acción recuperación
+is_resolved - BOOLEAN - Error resuelto
+resolved_timestamp - TIMESTAMP - Momento resolución
+resolved_by - VARCHAR(100) - Usuario resolvió
+
+
+CODEC_PERFORMANCE Métricas rendimiento de códecs
+performance_id - BIGINT - Identificador único - CLAVE PRIMARIA
+codec_name - VARCHAR(50) - Nombre códec
+worker_id - INT - Referencia worker - CLAVE FORÁNEA → processing_workers
+input_resolution - VARCHAR(20) - Resolución entrada
+encoding_speed_fps - DECIMAL(8,3) - Velocidad codificación
+cpu_utilization - DECIMAL(5,2) - Utilización CPU
+memory_usage_mb - INT - Uso memoria
+gpu_utilization - DECIMAL(5,2) - Utilización GPU
+benchmark_date - TIMESTAMP - Fecha benchmark
+test_duration_seconds - INT - Duración prueba
+quality_setting - DECIMAL(4,2) - Configuración calidad
+sample_file_type - VARCHAR(50) - Tipo archivo prueba
+
+
