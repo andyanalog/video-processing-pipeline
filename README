@@ -97,6 +97,7 @@ created_at - TIMESTAMP - Fecha creación
 updated_at - TIMESTAMP - Fecha actualización
 
 PROCESSING_WORKERS Servidores disponibles para procesamiento
+
 worker_id - INT - Identificador único - CLAVE PRIMARIA
 worker_name - VARCHAR(100) - Nombre del worker - UNIQUE
 server_hostname - VARCHAR(255) - Nombre servidor
@@ -192,6 +193,7 @@ resolved_by - VARCHAR(100) - Usuario resolvió
 
 
 CODEC_PERFORMANCE Métricas rendimiento de códecs
+
 performance_id - BIGINT - Identificador único - CLAVE PRIMARIA
 codec_name - VARCHAR(50) - Nombre códec
 worker_id - INT - Referencia worker - CLAVE FORÁNEA → processing_workers
