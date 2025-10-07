@@ -208,3 +208,276 @@ quality_setting - DECIMAL(4,2) - Configuración calidad
 sample_file_type - VARCHAR(50) - Tipo archivo prueba
 
 
+Objetos de Base de Datos
+VISTAS (4)
+1. vw_dashboard_trabajos_activos
+Objetivo: Proporcionar una vista consolidada del estado actual de todos los trabajos en procesamiento para monitoreo en tiempo real.
+Tablas involucradas:
+
+encoding_jobs
+source_files
+encoding_profiles
+processing_workers
+
+Descripción: Combina información de trabajos, archivos fuente, perfiles y workers. Incluye cálculo de tiempo de procesamiento y filtra por trabajos activos ('queued', 'processing'). Ordenado por prioridad descendente y fecha de encolado.
+Campos principales:
+
+Estado del trabajo y progreso
+Información del archivo origen
+Perfil de codificación aplicado
+Worker asignado y su estado
+Tiempos estimados y reales
+
+
+2. vw_metricas_calidad_completas
+Objetivo: Consolidar todas las métricas de calidad con información del trabajo y archivo original para análisis comparativo.
+Tablas involucradas:
+
+quality_metrics
+transcoded_outputs
+encoding_jobs
+source_files
+encoding_profiles
+
+Descripción: Permite análisis comparativo de calidad entre diferentes perfiles y códecs. Incluye categorización automática de calidad basada en VMAF (Excelente, Muy Buena, Buena, Aceptable, Baja). Solo muestra trabajos completados.
+Campos principales:
+
+Métricas PSNR, SSIM, VMAF
+Comparación archivo original vs transcodificado
+Eficiencia de bitrate y ratio de compresión
+Categoría de calidad calculada
+
+
+3. vw_rendimiento_workers
+Objetivo: Analizar el rendimiento y utilización de cada worker en el sistema.
+Tablas involucradas:
+
+processing_workers
+encoding_jobs
+transcoded_outputs
+
+Descripción: Agrega estadísticas de trabajos completados, tiempos promedio y eficiencia por worker. Calcula tasa de éxito, horas totales de procesamiento y estado de conexión (minutos desde último heartbeat).
+Campos principales:
+
+Especificaciones del worker (CPU, RAM, GPU)
+Total de trabajos procesados
+Tasa de éxito/fallo
+Tiempos promedio de codificación
+Estado de disponibilidad
+
+
+4. vw_historial_errores_recientes
+Objetivo: Monitorear errores recientes para identificar patrones y problemas sistemáticos.
+Tablas involucradas:
+
+processing_errors
+encoding_jobs
+source_files
+processing_workers
+
+Descripción: Muestra errores de los últimos 30 días con información contextual del trabajo. Incluye cálculo de tiempo sin resolver y acciones de recuperación.
+Campos principales:
+
+Código y mensaje de error
+Archivo y worker afectado
+Estado de resolución
+Tiempo transcurrido sin resolver
+
+
+FUNCIONES (3)
+1. fn_calcular_eficiencia_compresion(job_id)
+Retorna: DECIMAL(5,2) - Porcentaje de reducción de tamaño
+Objetivo: Calcular el porcentaje de reducción de tamaño tras la compresión comparando el archivo original con el transcodificado.
+Parámetros:
+
+p_job_id (BIGINT): ID del trabajo de codificación
+
+Lógica:
+
+Obtiene tamaño del archivo original desde source_files
+Obtiene tamaño del archivo transcodificado desde transcoded_outputs
+Calcula: ((tamaño_original - tamaño_comprimido) / tamaño_original) * 100
+Retorna 0.00 si hay valores NULL o inválidos
+
+Ejemplo de uso:
+SELECT job_id, fn_calcular_eficiencia_compresion(job_id) AS eficiencia_porcentaje
+FROM encoding_jobs 
+WHERE job_status = 'completed';
+
+2. fn_obtener_tiempo_espera_estimado(prioridad)
+Retorna: INT - Minutos estimados de espera
+Objetivo: Estimar tiempo de espera para trabajos en cola según su prioridad.
+Parámetros:
+
+p_prioridad (TINYINT): Prioridad del trabajo (1-10)
+
+Lógica:
+
+Cuenta trabajos en cola con prioridad >= a la especificada
+Obtiene capacidad total de workers activos
+Calcula tiempo promedio de procesamiento (últimos 7 días)
+Estima: (trabajos_adelante * tiempo_promedio) / (capacidad_total * 60)
+
+Ejemplo de uso:
+SELECT fn_obtener_tiempo_espera_estimado(8) AS minutos_espera_prioridad_8;
+
+3. fn_verificar_disponibilidad_worker(worker_id)
+Retorna: TINYINT - 1 (disponible) o 0 (no disponible)
+Objetivo: Verificar si un worker específico está disponible para aceptar nuevos trabajos.
+Parámetros:
+
+p_worker_id (INT): ID del worker a verificar
+
+Lógica:
+
+Obtiene estado, carga actual y capacidad máxima del worker
+Verifica si estado = 'active' y carga_actual < max_jobs
+Retorna 1 si disponible, 0 en caso contrario
+
+Ejemplo de uso:
+SELECT worker_id, worker_name, fn_verificar_disponibilidad_worker(worker_id) AS disponible
+FROM processing_workers;
+
+STORED PROCEDURES (3)
+1. sp_asignar_trabajo_a_worker(job_id)
+Objetivo: Asignar automáticamente un trabajo en cola al worker más apropiado.
+Parámetros:
+
+p_job_id (BIGINT): ID del trabajo a asignar
+
+Tablas afectadas:
+
+encoding_jobs (UPDATE)
+processing_workers (UPDATE - incrementa current_load)
+
+Descripción:
+Selecciona el worker óptimo basándose en:
+
+Estado activo
+Capacidad disponible
+Soporte del códec requerido
+Mayor capacidad disponible (max_jobs - current_load)
+Mayor número de CPU cores
+
+Actualiza el trabajo a estado 'processing' y asigna el worker, incrementando su carga.
+Ejemplo de uso:
+CALL sp_asignar_trabajo_a_worker(13);
+Salida:
+
+resultado: Mensaje de éxito o error
+worker_id: ID del worker asignado (o NULL si no hay disponibles)
+
+
+2. sp_reporte_rendimiento_periodo(fecha_inicio, fecha_fin)
+Objetivo: Generar reporte completo de rendimiento del sistema en un período específico.
+Parámetros:
+
+p_fecha_inicio (DATETIME): Fecha inicio del período
+p_fecha_fin (DATETIME): Fecha fin del período
+
+Tablas consultadas:
+
+encoding_jobs
+transcoded_outputs
+quality_metrics
+encoding_profiles
+processing_workers
+
+Descripción:
+Retorna 4 conjuntos de resultados:
+
+RESUMEN_TRABAJOS: Total, completados, fallidos, cancelados, duración promedio, tasa de éxito
+METRICAS_CALIDAD: Promedios de VMAF, PSNR, SSIM, calidad visual, eficiencia
+RENDIMIENTO_POR_PERFIL: Estadísticas por perfil de codificación
+TOP_WORKERS: Top 5 workers más productivos
+
+Ejemplo de uso:
+CALL sp_reporte_rendimiento_periodo('2025-01-15 00:00:00', '2025-01-30 23:59:59');
+
+3. sp_reintentar_trabajos_fallidos(horas_limite)
+Objetivo: Reintentar automáticamente trabajos fallidos que no hayan superado el límite de reintentos.
+Parámetros:
+
+p_horas_limite (INT): Límite de horas desde el fallo para considerar el reintento
+
+Tablas afectadas:
+
+encoding_jobs (UPDATE)
+
+Descripción:
+Resetea el estado de trabajos fallidos elegibles:
+
+Cambia status a 'queued'
+Limpia worker_id y started_timestamp
+Incrementa retry_count
+Resetea progress_percentage a 0
+Solo procesa trabajos donde retry_count < max_retries
+
+Ejemplo de uso:
+CALL sp_reintentar_trabajos_fallidos(48);
+Salida:
+
+trabajos_reintentados: Número de trabajos reintentados
+mensaje: Mensaje descriptivo
+
+
+TRIGGERS (4)
+1. trg_validar_worker_antes_asignacion
+Tipo: BEFORE UPDATE
+Tabla: encoding_jobs
+Objetivo: Validar que el worker asignado esté activo y tenga capacidad disponible antes de asignar un trabajo.
+Descripción:
+Se ejecuta antes de actualizar un encoding_job. Valida:
+
+Worker tiene estado 'active'
+Worker tiene capacidad disponible (current_load < max_concurrent_jobs)
+
+Genera error (SQLSTATE '45000') si alguna validación falla, cancelando la operación.
+Casos de uso:
+
+Prevenir asignación a workers en mantenimiento
+Prevenir sobrecarga de workers
+Garantizar integridad en la asignación automática
+
+
+2. trg_actualizar_carga_worker_completado
+Tipo: AFTER UPDATE
+Tabla: encoding_jobs
+Objetivo: Decrementar automáticamente la carga del worker cuando un trabajo se completa.
+Descripción:
+Se ejecuta después de actualizar un encoding_job. Cuando un trabajo pasa de 'processing' a estado final ('completed', 'failed', 'cancelled'):
+
+Decrementa current_load del worker en 1
+Usa GREATEST para evitar valores negativos
+Actualiza updated_at del worker
+
+Beneficio: Mantiene automáticamente la carga de workers actualizada sin intervención manual.
+
+3. trg_registrar_error_trabajo_fallido
+Tipo: AFTER UPDATE
+Tabla: encoding_jobs
+Objetivo: Registrar automáticamente un error cuando un trabajo cambia a estado fallido.
+Descripción:
+Se ejecuta después de actualizar un encoding_job. Cuando un trabajo cambia a estado 'failed':
+
+Crea registro en processing_errors
+Usa el error_message del trabajo o mensaje por defecto
+Determina recovery_action según retry_count vs max_retries
+Marca error como no resuelto (is_resolved = FALSE)
+
+Beneficio: Trazabilidad completa de errores sin necesidad de código adicional.
+
+4. trg_validar_metricas_calidad
+Tipo: BEFORE INSERT
+Tabla: quality_metrics
+Objetivo: Validar que las métricas de calidad estén dentro de rangos válidos antes de insertarlas.
+Descripción:
+Se ejecuta antes de insertar en quality_metrics. Valida:
+
+PSNR: 0-100 (típicamente 20-60 dB)
+SSIM: 0-1
+VMAF: 0-100
+
+Establece metric_version = '1.0' por defecto si es NULL.
+Genera error (SQLSTATE '45000') si valores están fuera de rango.
+Beneficio: Garantiza integridad de datos de calidad y previene valores imposibles.
