@@ -1,6 +1,7 @@
 -- ==========================================
--- VIDEO PROCESSING PIPELINE
+-- VIDEO PROCESSING PIPELINE - INSERCIÓN DE DATOS
 -- ==========================================
+-- Descripción: Script para poblar todas las tablas con datos de prueba
 -- Orden de ejecución: Ejecutar DESPUÉS de vistas_funciones_sp_triggers.sql
 -- ==========================================
 
