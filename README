@@ -209,7 +209,7 @@ sample_file_type - VARCHAR(50) - Tipo archivo prueba
 
 
 Objetos de Base de Datos
-VISTAS (4)
+VISTAS
 1. vw_dashboard_trabajos_activos
 Objetivo: Proporcionar una vista consolidada del estado actual de todos los trabajos en procesamiento para monitoreo en tiempo real.
 Tablas involucradas:
@@ -284,7 +284,7 @@ Estado de resolución
 Tiempo transcurrido sin resolver
 
 
-FUNCIONES (3)
+FUNCIONES
 1. fn_calcular_eficiencia_compresion(job_id)
 Retorna: DECIMAL(5,2) - Porcentaje de reducción de tamaño
 Objetivo: Calcular el porcentaje de reducción de tamaño tras la compresión comparando el archivo original con el transcodificado.
@@ -338,7 +338,7 @@ Ejemplo de uso:
 SELECT worker_id, worker_name, fn_verificar_disponibilidad_worker(worker_id) AS disponible
 FROM processing_workers;
 
-STORED PROCEDURES (3)
+STORED PROCEDURES
 1. sp_asignar_trabajo_a_worker(job_id)
 Objetivo: Asignar automáticamente un trabajo en cola al worker más apropiado.
 Parámetros:
@@ -421,7 +421,7 @@ trabajos_reintentados: Número de trabajos reintentados
 mensaje: Mensaje descriptivo
 
 
-TRIGGERS (4)
+TRIGGERS
 1. trg_validar_worker_antes_asignacion
 Tipo: BEFORE UPDATE
 Tabla: encoding_jobs
