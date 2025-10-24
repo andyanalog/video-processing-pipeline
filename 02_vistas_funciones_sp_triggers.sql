@@ -13,8 +13,6 @@ USE video_processing_pipeline;
 
 -- Vista 1: VW_DASHBOARD_TRABAJOS_ACTIVOS
 -- Objetivo: Proporcionar una vista consolidada del estado actual de todos los trabajos en procesamiento
--- Descripción: Combina información de trabajos, archivos fuente, perfiles y workers para monitoreo en tiempo real
--- Tablas: encoding_jobs, source_files, encoding_profiles, processing_workers
 DROP VIEW IF EXISTS vw_dashboard_trabajos_activos;
 
 CREATE VIEW vw_dashboard_trabajos_activos AS
@@ -36,19 +34,21 @@ SELECT
     TIMESTAMPDIFF(MINUTE, ej.started_timestamp, CURRENT_TIMESTAMP) AS minutos_procesando,
     ej.estimated_duration AS duracion_estimada_seg,
     ej.retry_count AS reintentos,
-    ej.created_by_user AS usuario_creador
+    ej.created_by_user AS usuario_creador,
+    c.client_name AS cliente,
+    p.project_name AS proyecto
 FROM encoding_jobs ej
 INNER JOIN source_files sf ON ej.source_file_id = sf.source_file_id
 INNER JOIN encoding_profiles ep ON ej.profile_id = ep.profile_id
 LEFT JOIN processing_workers pw ON ej.worker_id = pw.worker_id
+LEFT JOIN clients c ON sf.client_id = c.client_id
+LEFT JOIN projects p ON sf.project_id = p.project_id
 WHERE ej.job_status IN ('queued', 'processing')
 ORDER BY ej.job_priority DESC, ej.queued_timestamp ASC;
 
 
 -- Vista 2: VW_METRICAS_CALIDAD_COMPLETAS
 -- Objetivo: Consolidar todas las métricas de calidad con información del trabajo y archivo original
--- Descripción: Permite análisis comparativo de calidad entre diferentes perfiles y códecs
--- Tablas: quality_metrics, transcoded_outputs, encoding_jobs, source_files, encoding_profiles
 DROP VIEW IF EXISTS vw_metricas_calidad_completas;
 
 CREATE VIEW vw_metricas_calidad_completas AS
@@ -73,6 +73,8 @@ SELECT
     qm.audio_quality_score AS calidad_audio,
     qm.bitrate_efficiency AS eficiencia_bitrate,
     qm.analysis_timestamp AS fecha_analisis,
+    c.client_name AS cliente,
+    p.project_name AS proyecto,
     CASE 
         WHEN qm.vmaf_score >= 95 THEN 'Excelente'
         WHEN qm.vmaf_score >= 85 THEN 'Muy Buena'
@@ -85,13 +87,13 @@ INNER JOIN transcoded_outputs tro ON qm.output_id = tro.output_id
 INNER JOIN encoding_jobs ej ON tro.job_id = ej.job_id
 INNER JOIN source_files sf ON ej.source_file_id = sf.source_file_id
 INNER JOIN encoding_profiles ep ON ej.profile_id = ep.profile_id
+LEFT JOIN clients c ON sf.client_id = c.client_id
+LEFT JOIN projects p ON sf.project_id = p.project_id
 WHERE ej.job_status = 'completed';
 
 
 -- Vista 3: VW_RENDIMIENTO_WORKERS
 -- Objetivo: Analizar el rendimiento y utilización de cada worker en el sistema
--- Descripción: Agrega estadísticas de trabajos completados, tiempos promedio y eficiencia por worker
--- Tablas: processing_workers, encoding_jobs, transcoded_outputs
 DROP VIEW IF EXISTS vw_rendimiento_workers;
 
 CREATE VIEW vw_rendimiento_workers AS
@@ -126,8 +128,6 @@ GROUP BY pw.worker_id, pw.worker_name, pw.server_hostname, pw.worker_type,
 
 -- Vista 4: VW_HISTORIAL_ERRORES_RECIENTES
 -- Objetivo: Monitorear errores recientes para identificar patrones y problemas sistemáticos
--- Descripción: Muestra errores de los últimos 30 días con información contextual del trabajo
--- Tablas: processing_errors, encoding_jobs, source_files, processing_workers
 DROP VIEW IF EXISTS vw_historial_errores_recientes;
 
 CREATE VIEW vw_historial_errores_recientes AS
@@ -154,15 +154,55 @@ WHERE pe.error_timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
 ORDER BY pe.error_timestamp DESC;
 
 
+-- Vista 5: VW_DASHBOARD_CLIENTES
+-- Objetivo: Proporcionar vista consolidada de actividad y uso por cliente
+-- Descripción: Combina información de clientes, proyectos, archivos procesados y métricas de uso
+DROP VIEW IF EXISTS vw_dashboard_clientes;
+
+CREATE VIEW vw_dashboard_clientes AS
+SELECT 
+    c.client_id,
+    c.client_name AS nombre_cliente,
+    c.company_name AS empresa,
+    c.subscription_tier AS tipo_suscripcion,
+    c.is_active AS activo,
+    CONCAT(u.full_name, ' (', u.email, ')') AS account_manager,
+    c.monthly_quota_gb AS cuota_mensual_gb,
+    c.used_quota_gb AS cuota_usada_gb,
+    ROUND((c.used_quota_gb / c.monthly_quota_gb) * 100, 2) AS porcentaje_cuota_usada,
+    COUNT(DISTINCT p.project_id) AS total_proyectos,
+    COUNT(DISTINCT sf.source_file_id) AS total_archivos_subidos,
+    COUNT(DISTINCT ej.job_id) AS total_trabajos_procesados,
+    SUM(CASE WHEN ej.job_status = 'completed' THEN 1 ELSE 0 END) AS trabajos_completados,
+    SUM(CASE WHEN ej.job_status = 'failed' THEN 1 ELSE 0 END) AS trabajos_fallidos,
+    SUM(CASE WHEN ej.job_status IN ('queued', 'processing') THEN 1 ELSE 0 END) AS trabajos_activos,
+    ROUND(SUM(sf.file_size_bytes) / 1024 / 1024 / 1024, 2) AS total_gb_almacenados,
+    ROUND(AVG(qm.vmaf_score), 2) AS vmaf_promedio,
+    MAX(sf.upload_timestamp) AS ultima_subida,
+    DATEDIFF(CURRENT_DATE, c.contract_end_date) AS dias_hasta_renovacion,
+    CASE 
+        WHEN c.used_quota_gb >= c.monthly_quota_gb * 0.9 THEN 'Alerta: Cuota casi agotada'
+        WHEN c.used_quota_gb >= c.monthly_quota_gb * 0.75 THEN 'Advertencia: 75% de cuota usada'
+        WHEN DATEDIFF(c.contract_end_date, CURRENT_DATE) <= 30 THEN 'Renovación próxima'
+        ELSE 'Normal'
+    END AS estado_cuenta
+FROM clients c
+LEFT JOIN users u ON c.account_manager_id = u.user_id
+LEFT JOIN projects p ON c.client_id = p.client_id
+LEFT JOIN source_files sf ON c.client_id = sf.client_id
+LEFT JOIN encoding_jobs ej ON sf.source_file_id = ej.source_file_id
+LEFT JOIN transcoded_outputs tro ON ej.job_id = tro.job_id
+LEFT JOIN quality_metrics qm ON tro.output_id = qm.output_id
+GROUP BY c.client_id, c.client_name, c.company_name, c.subscription_tier, 
+         c.is_active, u.full_name, u.email, c.monthly_quota_gb, c.used_quota_gb,
+         c.contract_end_date;
+
+
 -- ==========================================
 -- SECCIÓN 2: FUNCIONES
 -- ==========================================
 
 -- Función 1: FN_CALCULAR_EFICIENCIA_COMPRESION
--- Objetivo: Calcular el porcentaje de reducción de tamaño tras la compresión
--- Descripción: Retorna el porcentaje de espacio ahorrado comparando archivo original vs transcodificado
--- Parámetros: job_id del trabajo de codificación
--- Retorno: DECIMAL - Porcentaje de reducción (ej: 65.50 significa 65.5% de reducción)
 DELIMITER //
 
 DROP FUNCTION IF EXISTS fn_calcular_eficiencia_compresion//
@@ -202,10 +242,6 @@ DELIMITER ;
 
 
 -- Función 2: FN_OBTENER_TIEMPO_ESPERA_ESTIMADO
--- Objetivo: Estimar tiempo de espera para trabajos en cola según prioridad
--- Descripción: Calcula minutos estimados de espera basándose en trabajos pendientes y capacidad de workers
--- Parámetros: prioridad del trabajo (1-10)
--- Retorno: INT - Minutos estimados de espera
 DELIMITER //
 
 DROP FUNCTION IF EXISTS fn_obtener_tiempo_espera_estimado//
@@ -248,10 +284,6 @@ DELIMITER ;
 
 
 -- Función 3: FN_VERIFICAR_DISPONIBILIDAD_WORKER
--- Objetivo: Verificar si un worker específico está disponible para nuevos trabajos
--- Descripción: Retorna 1 si el worker puede aceptar trabajos, 0 si está al límite de capacidad
--- Parámetros: worker_id del worker a verificar
--- Retorno: TINYINT - 1 (disponible) o 0 (no disponible)
 DELIMITER //
 
 DROP FUNCTION IF EXISTS fn_verificar_disponibilidad_worker//
@@ -290,10 +322,6 @@ DELIMITER ;
 -- ==========================================
 
 -- Stored Procedure 1: SP_ASIGNAR_TRABAJO_A_WORKER
--- Objetivo: Asignar automáticamente un trabajo en cola al worker más apropiado
--- Descripción: Selecciona el worker óptimo basándose en disponibilidad, capacidad y soporte de códec
--- Parámetros: job_id del trabajo a asignar
--- Tablas afectadas: encoding_jobs, processing_workers
 DELIMITER //
 
 DROP PROCEDURE IF EXISTS sp_asignar_trabajo_a_worker//
@@ -322,9 +350,9 @@ BEGIN
         OR JSON_CONTAINS(supported_codecs, JSON_QUOTE(v_codec_requerido))
     )
     ORDER BY 
-        (max_concurrent_jobs - current_load) DESC,  -- Mayor capacidad disponible
-        cpu_cores DESC,                              -- Más CPU cores
-        worker_id ASC                                -- Desempate por ID
+        (max_concurrent_jobs - current_load) DESC,
+        cpu_cores DESC,
+        worker_id ASC
     LIMIT 1;
     
     -- Asignar el trabajo al worker
@@ -356,10 +384,6 @@ DELIMITER ;
 
 
 -- Stored Procedure 2: SP_REPORTE_RENDIMIENTO_PERIODO
--- Objetivo: Generar reporte completo de rendimiento del sistema en un período específico
--- Descripción: Retorna estadísticas agregadas de trabajos, calidad y utilización de recursos
--- Parámetros: fecha_inicio, fecha_fin
--- Tablas consultadas: encoding_jobs, transcoded_outputs, quality_metrics, processing_workers
 DELIMITER //
 
 DROP PROCEDURE IF EXISTS sp_reporte_rendimiento_periodo//
@@ -436,10 +460,6 @@ DELIMITER ;
 
 
 -- Stored Procedure 3: SP_REINTENTAR_TRABAJOS_FALLIDOS
--- Objetivo: Reintentar automáticamente trabajos fallidos que no hayan superado el límite de reintentos
--- Descripción: Resetea el estado de trabajos fallidos elegibles y los vuelve a encolar
--- Parámetros: límite de horas desde el fallo (opcional, default 24)
--- Tablas afectadas: encoding_jobs
 DELIMITER //
 
 DROP PROCEDURE IF EXISTS sp_reintentar_trabajos_fallidos//
@@ -480,9 +500,6 @@ DELIMITER ;
 -- ==========================================
 
 -- Trigger 1: TRG_VALIDAR_WORKER_ANTES_ASIGNACION
--- Objetivo: Validar que el worker asignado esté activo y tenga capacidad disponible
--- Descripción: Se ejecuta antes de actualizar un encoding_job para verificar disponibilidad del worker
--- Tabla: encoding_jobs (BEFORE UPDATE)
 DELIMITER //
 
 DROP TRIGGER IF EXISTS trg_validar_worker_antes_asignacion//
@@ -523,9 +540,6 @@ DELIMITER ;
 
 
 -- Trigger 2: TRG_ACTUALIZAR_CARGA_WORKER_COMPLETADO
--- Objetivo: Decrementar automáticamente la carga del worker cuando un trabajo se completa
--- Descripción: Se ejecuta después de actualizar un encoding_job a estado completado/fallido/cancelado
--- Tabla: encoding_jobs (AFTER UPDATE)
 DELIMITER //
 
 DROP TRIGGER IF EXISTS trg_actualizar_carga_worker_completado//
@@ -552,9 +566,6 @@ DELIMITER ;
 
 
 -- Trigger 3: TRG_REGISTRAR_ERROR_TRABAJO_FALLIDO
--- Objetivo: Registrar automáticamente un error cuando un trabajo cambia a estado fallido
--- Descripción: Crea una entrada en processing_errors con información básica del fallo
--- Tabla: encoding_jobs (AFTER UPDATE)
 DELIMITER //
 
 DROP TRIGGER IF EXISTS trg_registrar_error_trabajo_fallido//
@@ -566,7 +577,7 @@ BEGIN
     -- Si el trabajo cambió a estado failed
     IF NEW.job_status = 'failed' AND OLD.job_status != 'failed' THEN
         
-        -- Insertar registro de error si no existe uno reciente
+        -- Insertar registro de error
         INSERT INTO processing_errors (
             job_id,
             error_code,
@@ -594,9 +605,6 @@ DELIMITER ;
 
 
 -- Trigger 4: TRG_VALIDAR_METRICAS_CALIDAD
--- Objetivo: Validar que las métricas de calidad estén dentro de rangos válidos antes de insertarlas
--- Descripción: Verifica que PSNR, SSIM y VMAF tengan valores coherentes
--- Tabla: quality_metrics (BEFORE INSERT)
 DELIMITER //
 
 DROP TRIGGER IF EXISTS trg_validar_metricas_calidad//
@@ -636,7 +644,7 @@ DELIMITER ;
 -- ==========================================
 
 -- Resumen de objetos creados:
--- 4 Vistas (Views)
--- 3 Funciones (Functions) 
+-- 5 Vistas (Views)
+-- 3 Funciones (Functions)
 -- 3 Stored Procedures
 -- 4 Triggers
