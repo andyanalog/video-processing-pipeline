@@ -154,7 +154,7 @@ WHERE pe.error_timestamp >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
 ORDER BY pe.error_timestamp DESC;
 
 
--- Vista 5: VW_DASHBOARD_CLIENTES (NUEVA VISTA)
+-- Vista 5: VW_DASHBOARD_CLIENTES
 -- Objetivo: Proporcionar vista consolidada de actividad y uso por cliente
 -- Descripción: Combina información de clientes, proyectos, archivos procesados y métricas de uso
 DROP VIEW IF EXISTS vw_dashboard_clientes;

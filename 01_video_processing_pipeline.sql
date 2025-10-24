@@ -104,10 +104,10 @@ CREATE TABLE storage_locations (
 );
 
 -- ==========================================
--- CREACIÓN DE TABLAS - SECCIÓN 4: ARCHIVOS FUENTE (MODIFICADA)
+-- CREACIÓN DE TABLAS - SECCIÓN 4: ARCHIVOS FUENTE
 -- ==========================================
 
--- Tabla: SOURCE_FILES (MODIFICADA - agregando relaciones)
+-- Tabla: SOURCE_FILES
 CREATE TABLE source_files (
     source_file_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     filename VARCHAR(255) NOT NULL,
@@ -124,7 +124,7 @@ CREATE TABLE source_files (
     audio_sample_rate INT CHECK (audio_sample_rate > 0),
     container_format VARCHAR(20) NOT NULL,
     metadata_json JSON,
-    -- NUEVAS COLUMNAS
+    --
     client_id INT,
     project_id INT,
     uploaded_by_user_id INT,
@@ -132,7 +132,7 @@ CREATE TABLE source_files (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
-    -- NUEVAS FOREIGN KEYS
+    --
     FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE SET NULL,
     FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE SET NULL,
     FOREIGN KEY (uploaded_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
@@ -190,7 +190,7 @@ CREATE TABLE notifications (
 );
 
 -- ==========================================
--- TABLAS ORIGINALES (SIN MODIFICAR)
+-- TABLAS ORIGINALES
 -- ==========================================
 
 -- Tabla: ENCODING_PROFILES
@@ -234,7 +234,7 @@ CREATE TABLE processing_workers (
     CONSTRAINT chk_load_limit CHECK (current_load <= max_concurrent_jobs)
 );
 
--- Tabla: ENCODING_JOBS (MODIFICADA - agregando relación con users)
+-- Tabla: ENCODING_JOBS
 CREATE TABLE encoding_jobs (
     job_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     source_file_id BIGINT NOT NULL,
