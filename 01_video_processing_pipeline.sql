@@ -124,7 +124,6 @@ CREATE TABLE source_files (
     audio_sample_rate INT CHECK (audio_sample_rate > 0),
     container_format VARCHAR(20) NOT NULL,
     metadata_json JSON,
-    --
     client_id INT,
     project_id INT,
     uploaded_by_user_id INT,
@@ -132,61 +131,10 @@ CREATE TABLE source_files (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
-    --
     FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE SET NULL,
     FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE SET NULL,
     FOREIGN KEY (uploaded_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
     FOREIGN KEY (storage_location_id) REFERENCES storage_locations(location_id) ON DELETE SET NULL
-);
-
--- ==========================================
--- CREACIÓN DE TABLAS - SECCIÓN 5: AUDITORÍA
--- ==========================================
-
--- Tabla: AUDIT_LOGS
-CREATE TABLE audit_logs (
-    log_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT,
-    action_type ENUM('create', 'update', 'delete', 'login', 'logout', 'upload', 'download', 'assign', 'cancel') NOT NULL,
-    table_name VARCHAR(100) NOT NULL,
-    record_id BIGINT,
-    action_description TEXT,
-    old_values JSON,
-    new_values JSON,
-    ip_address VARCHAR(45),
-    user_agent VARCHAR(500),
-    action_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
-    INDEX idx_action_timestamp (action_timestamp),
-    INDEX idx_user_action (user_id, action_type),
-    INDEX idx_table_record (table_name, record_id)
-);
-
--- ==========================================
--- CREACIÓN DE TABLAS - SECCIÓN 6: NOTIFICACIONES
--- ==========================================
-
--- Tabla: NOTIFICATIONS
-CREATE TABLE notifications (
-    notification_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    notification_type ENUM('job_completed', 'job_failed', 'quota_warning', 'system_alert', 'maintenance', 'quality_issue') NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    related_job_id BIGINT,
-    related_file_id BIGINT,
-    priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
-    is_read BOOLEAN DEFAULT FALSE,
-    read_timestamp TIMESTAMP NULL,
-    notification_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NULL,
-    
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (related_job_id) REFERENCES encoding_jobs(job_id) ON DELETE CASCADE,
-    FOREIGN KEY (related_file_id) REFERENCES source_files(source_file_id) ON DELETE CASCADE,
-    INDEX idx_user_unread (user_id, is_read),
-    INDEX idx_notification_timestamp (notification_timestamp)
 );
 
 -- ==========================================
@@ -352,6 +300,53 @@ CREATE TABLE codec_performance (
     FOREIGN KEY (worker_id) REFERENCES processing_workers(worker_id) ON DELETE CASCADE,
     
     UNIQUE KEY unique_benchmark (codec_name, worker_id, input_resolution, quality_setting, sample_file_type)
+);
+
+-- Tabla: AUDIT_LOGS
+CREATE TABLE audit_logs (
+    log_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    action_type ENUM('login', 'logout', 'upload', 'create', 'update', 'delete', 
+                     'assign', 'cancel', 'approve', 'reject') NOT NULL,
+    table_name VARCHAR(100),
+    record_id BIGINT,
+    action_description TEXT,
+    old_values JSON,
+    new_values JSON,
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(255),
+    action_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+    INDEX idx_audit_user (user_id),
+    INDEX idx_audit_timestamp (action_timestamp),
+    INDEX idx_audit_table (table_name),
+    INDEX idx_audit_action (action_type)
+);
+
+-- Tabla: NOTIFICATIONS
+CREATE TABLE notifications (
+    notification_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    notification_type ENUM('job_completed', 'job_failed', 'job_cancelled', 
+                          'quota_warning', 'system_alert', 'quality_issue', 
+                          'maintenance', 'message') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    related_job_id BIGINT,
+    related_file_id BIGINT,
+    priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    is_read BOOLEAN DEFAULT FALSE,
+    read_timestamp TIMESTAMP NULL,
+    notification_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (related_job_id) REFERENCES encoding_jobs(job_id) ON DELETE SET NULL,
+    FOREIGN KEY (related_file_id) REFERENCES source_files(source_file_id) ON DELETE SET NULL,
+    INDEX idx_notif_user (user_id),
+    INDEX idx_notif_read (is_read),
+    INDEX idx_notif_timestamp (notification_timestamp),
+    INDEX idx_notif_type (notification_type)
 );
 
 -- ==========================================
