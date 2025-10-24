@@ -11,10 +11,103 @@ CREATE DATABASE video_processing_pipeline;
 USE video_processing_pipeline;
 
 -- ==========================================
--- CREACIÓN DE TABLAS
+-- CREACIÓN DE TABLAS - SECCIÓN 1: GESTIÓN DE USUARIOS
 -- ==========================================
 
--- Tabla: SOURCE_FILES
+-- Tabla: USERS
+CREATE TABLE users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    full_name VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    user_role ENUM('admin', 'encoder', 'analyst', 'client', 'viewer') DEFAULT 'viewer',
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login TIMESTAMP NULL,
+    failed_login_attempts TINYINT DEFAULT 0,
+    account_locked BOOLEAN DEFAULT FALSE,
+    phone_number VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- CREACIÓN DE TABLAS - SECCIÓN 2: GESTIÓN DE CLIENTES
+-- ==========================================
+
+-- Tabla: CLIENTS
+CREATE TABLE clients (
+    client_id INT PRIMARY KEY AUTO_INCREMENT,
+    client_name VARCHAR(255) NOT NULL,
+    company_name VARCHAR(255) NOT NULL,
+    industry VARCHAR(100),
+    contact_email VARCHAR(255) NOT NULL,
+    contact_phone VARCHAR(20),
+    billing_address TEXT,
+    tax_id VARCHAR(50),
+    account_manager_id INT,
+    subscription_tier ENUM('basic', 'professional', 'enterprise') DEFAULT 'basic',
+    monthly_quota_gb INT DEFAULT 100,
+    used_quota_gb DECIMAL(10,2) DEFAULT 0.00,
+    is_active BOOLEAN DEFAULT TRUE,
+    contract_start_date DATE,
+    contract_end_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (account_manager_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+-- Tabla: PROJECTS
+CREATE TABLE projects (
+    project_id INT PRIMARY KEY AUTO_INCREMENT,
+    project_name VARCHAR(255) NOT NULL,
+    project_code VARCHAR(50) NOT NULL UNIQUE,
+    client_id INT NOT NULL,
+    project_description TEXT,
+    project_status ENUM('active', 'on_hold', 'completed', 'cancelled') DEFAULT 'active',
+    priority_level TINYINT DEFAULT 5 CHECK (priority_level BETWEEN 1 AND 10),
+    budget_allocated DECIMAL(12,2),
+    budget_spent DECIMAL(12,2) DEFAULT 0.00,
+    start_date DATE,
+    expected_end_date DATE,
+    actual_end_date DATE NULL,
+    created_by_user_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+-- ==========================================
+-- CREACIÓN DE TABLAS - SECCIÓN 3: GESTIÓN DE ALMACENAMIENTO
+-- ==========================================
+
+-- Tabla: STORAGE_LOCATIONS
+CREATE TABLE storage_locations (
+    location_id INT PRIMARY KEY AUTO_INCREMENT,
+    location_name VARCHAR(100) NOT NULL UNIQUE,
+    location_type ENUM('local', 's3', 'azure', 'gcp', 'nas') NOT NULL,
+    base_path VARCHAR(500) NOT NULL,
+    region VARCHAR(50),
+    bucket_name VARCHAR(255),
+    access_key_encrypted VARCHAR(500),
+    total_capacity_gb BIGINT,
+    used_capacity_gb DECIMAL(12,2) DEFAULT 0.00,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_default BOOLEAN DEFAULT FALSE,
+    priority_order TINYINT DEFAULT 1,
+    connection_string TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- CREACIÓN DE TABLAS - SECCIÓN 4: ARCHIVOS FUENTE (MODIFICADA)
+-- ==========================================
+
+-- Tabla: SOURCE_FILES (MODIFICADA - agregando relaciones)
 CREATE TABLE source_files (
     source_file_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     filename VARCHAR(255) NOT NULL,
@@ -31,9 +124,74 @@ CREATE TABLE source_files (
     audio_sample_rate INT CHECK (audio_sample_rate > 0),
     container_format VARCHAR(20) NOT NULL,
     metadata_json JSON,
+    -- NUEVAS COLUMNAS
+    client_id INT,
+    project_id INT,
+    uploaded_by_user_id INT,
+    storage_location_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- NUEVAS FOREIGN KEYS
+    FOREIGN KEY (client_id) REFERENCES clients(client_id) ON DELETE SET NULL,
+    FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE SET NULL,
+    FOREIGN KEY (uploaded_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+    FOREIGN KEY (storage_location_id) REFERENCES storage_locations(location_id) ON DELETE SET NULL
 );
+
+-- ==========================================
+-- CREACIÓN DE TABLAS - SECCIÓN 5: AUDITORÍA
+-- ==========================================
+
+-- Tabla: AUDIT_LOGS
+CREATE TABLE audit_logs (
+    log_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    action_type ENUM('create', 'update', 'delete', 'login', 'logout', 'upload', 'download', 'assign', 'cancel') NOT NULL,
+    table_name VARCHAR(100) NOT NULL,
+    record_id BIGINT,
+    action_description TEXT,
+    old_values JSON,
+    new_values JSON,
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(500),
+    action_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+    INDEX idx_action_timestamp (action_timestamp),
+    INDEX idx_user_action (user_id, action_type),
+    INDEX idx_table_record (table_name, record_id)
+);
+
+-- ==========================================
+-- CREACIÓN DE TABLAS - SECCIÓN 6: NOTIFICACIONES
+-- ==========================================
+
+-- Tabla: NOTIFICATIONS
+CREATE TABLE notifications (
+    notification_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    notification_type ENUM('job_completed', 'job_failed', 'quota_warning', 'system_alert', 'maintenance', 'quality_issue') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    related_job_id BIGINT,
+    related_file_id BIGINT,
+    priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    is_read BOOLEAN DEFAULT FALSE,
+    read_timestamp TIMESTAMP NULL,
+    notification_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NULL,
+    
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (related_job_id) REFERENCES encoding_jobs(job_id) ON DELETE CASCADE,
+    FOREIGN KEY (related_file_id) REFERENCES source_files(source_file_id) ON DELETE CASCADE,
+    INDEX idx_user_unread (user_id, is_read),
+    INDEX idx_notification_timestamp (notification_timestamp)
+);
+
+-- ==========================================
+-- TABLAS ORIGINALES (SIN MODIFICAR)
+-- ==========================================
 
 -- Tabla: ENCODING_PROFILES
 CREATE TABLE encoding_profiles (
@@ -76,7 +234,7 @@ CREATE TABLE processing_workers (
     CONSTRAINT chk_load_limit CHECK (current_load <= max_concurrent_jobs)
 );
 
--- Tabla: ENCODING_JOBS
+-- Tabla: ENCODING_JOBS (MODIFICADA - agregando relación con users)
 CREATE TABLE encoding_jobs (
     job_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     source_file_id BIGINT NOT NULL,
@@ -92,6 +250,7 @@ CREATE TABLE encoding_jobs (
     retry_count TINYINT DEFAULT 0 CHECK (retry_count >= 0),
     max_retries TINYINT DEFAULT 3 CHECK (max_retries >= 0),
     created_by_user VARCHAR(100),
+    created_by_user_id INT,
     error_message TEXT,
     progress_percentage DECIMAL(5,2) DEFAULT 0.00 CHECK (progress_percentage BETWEEN 0 AND 100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,6 +259,7 @@ CREATE TABLE encoding_jobs (
     FOREIGN KEY (source_file_id) REFERENCES source_files(source_file_id) ON DELETE CASCADE,
     FOREIGN KEY (profile_id) REFERENCES encoding_profiles(profile_id) ON DELETE RESTRICT,
     FOREIGN KEY (worker_id) REFERENCES processing_workers(worker_id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
     
     CONSTRAINT chk_retry_limit CHECK (retry_count <= max_retries)
 );
@@ -193,3 +353,25 @@ CREATE TABLE codec_performance (
     
     UNIQUE KEY unique_benchmark (codec_name, worker_id, input_resolution, quality_setting, sample_file_type)
 );
+
+-- ==========================================
+-- ÍNDICES ADICIONALES PARA OPTIMIZACIÓN
+-- ==========================================
+
+-- Índices en source_files
+CREATE INDEX idx_source_client ON source_files(client_id);
+CREATE INDEX idx_source_project ON source_files(project_id);
+CREATE INDEX idx_source_uploaded_by ON source_files(uploaded_by_user_id);
+CREATE INDEX idx_source_storage ON source_files(storage_location_id);
+
+-- Índices en encoding_jobs
+CREATE INDEX idx_jobs_created_by ON encoding_jobs(created_by_user_id);
+CREATE INDEX idx_jobs_status ON encoding_jobs(job_status);
+
+-- Índices en projects
+CREATE INDEX idx_project_client ON projects(client_id);
+CREATE INDEX idx_project_status ON projects(project_status);
+
+-- Índices en clients
+CREATE INDEX idx_client_manager ON clients(account_manager_id);
+CREATE INDEX idx_client_active ON clients(is_active);

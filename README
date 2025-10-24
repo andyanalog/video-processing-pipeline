@@ -1,483 +1,780 @@
-Video Processing Pipeline
+# Video Processing Pipeline - Base de Datos
 
-El proyecto consiste en el desarrollo de una base de datos para un Sistema de Procesamiento de Video que automatiza la transcodificación y conversión de archivos multimedia. Este sistema permite recibir videos en diversos formatos, procesarlos según diferentes perfiles de calidad y generar múltiples versiones optimizadas para distintos dispositivos y plataformas de streaming.
+---
 
-Objetivo
-El objetivo principal es diseñar e implementar una base de datos que permita:
+## DESCRIPCIÓN DEL PROYECTO
 
-Gestión de archivos fuente: Almacenar metadatos de videos originales
-Control de trabajos de codificación: Administrar la cola de procesamiento
-Seguimiento de calidad: Registrar métricas de rendimiento y calidad
-Monitoreo de recursos: Controlar la utilización de servidores de procesamiento
-Trazabilidad completa: Desde el archivo original hasta las versiones finales
+El **Video Processing Pipeline** es un sistema de base de datos diseñado para automatizar y gestionar la transcodificación de archivos multimedia a gran escala. 
 
-SITUACIÓN PROBLEMÁTICA
+El sistema permite:
+- Recibir videos en diversos formatos
+- Procesarlos según diferentes perfiles de calidad
+- Generar múltiples versiones optimizadas para distintos dispositivos y plataformas de streaming
+- Gestionar clientes, usuarios, proyectos y cuotas de almacenamiento
+- Mantener auditoría completa de todas las operaciones
+- Notificar eventos relevantes automáticamente
 
-Necesidad del Negocio
-Las empresas de streaming y producción multimedia enfrentan el desafío de procesar grandes volúmenes de contenido de video para múltiples plataformas. Sin un sistema de base de datos estructurado, surgen problemas como:
+**Tipo de organización objetivo**: Plataformas de streaming (Netflix, YouTube, HBO Max, Disney+, Amazon Prime Video), productoras de contenido multimedia, agencias de publicidad, estudios de animación.
 
-Pérdida de trazabilidad en el procesamiento de archivos
-Duplicación de trabajo por falta de control de estado
-Ineficiencia en la asignación de recursos computacionales
-Dificultad para medir calidad y rendimiento del procesamiento
-Falta de visibilidad en los tiempos de procesamiento
+---
 
-Solución Propuesta
-La implementación de esta base de datos permite:
+## OBJETIVO
 
-Centralizar toda la información del pipeline de procesamiento
-Automatizar la gestión de colas de trabajo
-Proporcionar métricas detalladas de calidad y rendimiento
-Optimizar la utilización de recursos computacionales
+Diseñar e implementar una base de datos relacional que permita:
 
-MODELO DE NEGOCIO
+ **Gestión de clientes y usuarios** - Sistema multiusuario con roles y permisos  
+ **Gestión de proyectos** - Organización de archivos por proyectos y clientes  
+ **Gestión de archivos fuente** - Almacenar metadatos de videos en múltiples ubicaciones  
+ **Control de trabajos de codificación** - Administrar cola de procesamiento con prioridades  
+ **Seguimiento de calidad** - Registrar métricas (PSNR, SSIM, VMAF)  
+ **Monitoreo de recursos** - Controlar utilización de servidores de procesamiento  
+ **Trazabilidad completa** - Desde archivo original hasta versiones finales  
+ **Auditoría** - Registro de todas las acciones realizadas  
+ **Notificaciones** - Alertas automáticas sobre eventos importantes  
 
-Descripción de la Organización
-El sistema está diseñado para organizaciones que manejan procesamiento de video a gran escala:
+---
 
-Tipos de Usuarios
-OTTs: Suben videos originales a la plataforma
-System Administrators: Configuran perfiles de codificación y monitorean workers
-Quality Analysts: Revisan métricas de calidad y rendimiento
-Flujo de Trabajo
+## SITUACIÓN PROBLEMÁTICA
 
-Ingesta: Los archivos de video se cargan y analizan automáticamente
-Encolado: Se crean trabajos de codificación según perfiles activos
-Procesamiento: Workers disponibles procesan los videos
-Análisis: Se calculan métricas de calidad para cada salida
-Distribución: Los archivos procesados están listos para distribución
+### Necesidad del Negocio
 
+Las empresas de streaming y producción multimedia enfrentan desafíos al procesar grandes volúmenes de video:
 
-Relaciones Principales
-Un archivo fuente puede generar múltiples trabajos de codificación
-Cada trabajo se asigna a un worker y usa un perfil específico
-Cada trabajo genera una salida transcodificada con métricas de calidad
-Los workers tienen registros de rendimiento para diferentes códecs
+**Problemas sin sistema estructurado:**
+- Pérdida de trazabilidad en el procesamiento
+- Duplicación de trabajo por falta de control de estado
+- Ineficiencia en asignación de recursos computacionales
+- Dificultad para medir calidad y rendimiento
+- Falta de visibilidad en tiempos de procesamiento
+- Ausencia de control sobre cuotas y facturación
+- Imposibilidad de auditar acciones
 
+### Solución Propuesta
 
-LISTADO DE TABLAS
+La base de datos implementada permite:
+- Centralizar información del pipeline de procesamiento
+- Automatizar gestión de colas con prioridades
+- Proporcionar métricas detalladas de calidad
+- Optimizar utilización de recursos
+- Gestionar clientes, proyectos y cuotas
+- Mantener auditoría completa
+- Notificar eventos relevantes automáticamente
 
-SOURCE_FILES Almacena información de archivos de video originales
+---
 
-source_file_id - BIGINT - Identificador único - CLAVE PRIMARIA
-filename - VARCHAR(255) - Nombre del archivo
-file_path - VARCHAR(500) - Ruta del archivo - UNIQUE
-file_size_bytes - BIGINT - Tamaño en bytes
-duration_seconds - DECIMAL(10,3) - Duración del video
-upload_timestamp - TIMESTAMP - Fecha de carga
-checksum_md5 - CHAR(32) - Hash MD5 - UNIQUE
-original_codec - VARCHAR(50) - Códec original
-original_resolution - VARCHAR(20) - Resolución original
-original_bitrate - BIGINT - Bitrate original
-original_framerate - DECIMAL(5,2) - FPS original
-audio_channels - TINYINT - Canales de audio
-audio_sample_rate - INT - Frecuencia de audio
-container_format - VARCHAR(20) - Formato contenedor
-metadata_json - JSON - Metadatos adicionales
-created_at - TIMESTAMP - Fecha creación
-updated_at - TIMESTAMP - Fecha actualización
+## MODELO DE NEGOCIO
 
-ENCODING_PROFILES Define perfiles de codificación disponibles
+### Tipos de Usuarios
 
-profile_id - INT - Identificador único - CLAVE PRIMARIA
-profile_name - VARCHAR(100) - Nombre del perfil - UNIQUE
-target_codec - VARCHAR(50) - Códec destino
-target_resolution - VARCHAR(20) - Resolución objetivo
-target_bitrate - BIGINT - Bitrate objetivo
-target_framerate - DECIMAL(5,2) - FPS objetivo
-audio_codec - VARCHAR(50) - Códec de audio
-audio_bitrate - INT - Bitrate de audio
-container_format - VARCHAR(20) - Formato final
-ffmpeg_preset - VARCHAR(20) - Preset FFmpeg
-quality_setting - DECIMAL(4,2) - Configuración calidad
-profile_description - TEXT - Descripción
-created_date - TIMESTAMP - Fecha creación
-is_active - BOOLEAN - Perfil activo
-created_at - TIMESTAMP - Fecha creación
-updated_at - TIMESTAMP - Fecha actualización
+| Rol | Descripción | Responsabilidades |
+|-----|-------------|-------------------|
+| **Admin** | Administrador del sistema | Configuración global, gestión de workers, supervisión |
+| **Encoder** | Operador de codificación | Crear y gestionar trabajos, configurar perfiles |
+| **Analyst** | Analista de calidad | Revisar métricas, generar reportes de rendimiento |
+| **Client** | Cliente del servicio | Subir archivos, crear proyectos, monitorear cuota |
+| **Viewer** | Usuario de solo lectura | Consultar estado de trabajos y métricas |
 
-PROCESSING_WORKERS Servidores disponibles para procesamiento
+### Flujo de Trabajo
 
-worker_id - INT - Identificador único - CLAVE PRIMARIA
-worker_name - VARCHAR(100) - Nombre del worker - UNIQUE
-server_hostname - VARCHAR(255) - Nombre servidor
-cpu_cores - TINYINT - Núcleos CPU
-ram_gb - SMALLINT - Memoria RAM en GB
-gpu_model - VARCHAR(100) - Modelo GPU
-gpu_memory_gb - SMALLINT - Memoria GPU en GB
-max_concurrent_jobs - TINYINT - Máximo trabajos concurrentes
-current_load - TINYINT - Carga actual
-worker_status - ENUM - Estado worker
-supported_codecs - JSON - Códecs soportados
-last_heartbeat - TIMESTAMP - Último heartbeat
-worker_type - ENUM - Tipo worker
-created_at - TIMESTAMP - Fecha creación
-updated_at - TIMESTAMP - Fecha actualización
+```
+1. Registro de Cliente → Cliente se registra con suscripción
+2. Creación de Proyecto → Cliente crea proyectos para organizar archivos
+3. Ingesta → Archivos se cargan y analizan automáticamente
+4. Encolado → Se crean trabajos de codificación según perfiles
+5. Asignación → Sistema asigna trabajos a workers disponibles
+6. Procesamiento → Workers procesan videos usando FFmpeg
+7. Análisis → Se calculan métricas de calidad (PSNR, SSIM, VMAF)
+8. Notificación → Usuarios reciben alertas sobre trabajos
+9. Distribución → Archivos procesados listos para distribución
+10. Auditoría → Todas las acciones registradas
+```
 
-ENCODING_JOBS Tabla central que gestiona trabajos de codificación
+### Modelo de Suscripción
 
-job_id - BIGINT - Identificador único - CLAVE PRIMARIA
-source_file_id - BIGINT - Referencia archivo - CLAVE FORÁNEA → source_files
-profile_id - INT - Referencia perfil - CLAVE FORÁNEA → encoding_profiles
-worker_id - INT - Worker asignado - CLAVE FORÁNEA → processing_workers
-job_priority - TINYINT - Prioridad trabajo
-job_status - ENUM - Estado trabajo
-queued_timestamp - TIMESTAMP - Momento encolado
-started_timestamp - TIMESTAMP - Momento inicio
-completed_timestamp - TIMESTAMP - Momento finalización
-estimated_duration - INT - Duración estimada
-actual_duration - INT - Duración real
-retry_count - TINYINT - Número reintentos
-max_retries - TINYINT - Máximo reintentos
-created_by_user - VARCHAR(100) - Usuario creador
-error_message - TEXT - Mensaje error
-progress_percentage - DECIMAL(5,2) - Porcentaje progreso
-created_at - TIMESTAMP - Fecha creación
-updated_at - TIMESTAMP - Fecha actualización
-
-TRANSCODED_OUTPUTS Archivos generados tras codificación
-
-output_id - BIGINT - Identificador único - CLAVE PRIMARIA
-job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs
-output_filename - VARCHAR(255) - Nombre archivo generado
-output_path - VARCHAR(500) - Ruta archivo - UNIQUE
-output_size_bytes - BIGINT - Tamaño en bytes
-actual_bitrate - BIGINT - Bitrate real
-actual_resolution - VARCHAR(20) - Resolución real
-actual_framerate - DECIMAL(5,2) - FPS real
-encoding_time_seconds - INT - Tiempo codificación
-compression_ratio - DECIMAL(8,4) - Ratio compresión
-output_checksum - CHAR(32) - Hash MD5 - UNIQUE
-created_at - TIMESTAMP - Fecha creación
-QUALITY_METRICS Métricas de calidad calculadas
-metric_id - BIGINT - Identificador único - CLAVE PRIMARIA
-output_id - BIGINT - Referencia salida - CLAVE FORÁNEA → transcoded_outputs
-psnr_value - DECIMAL(6,3) - Valor PSNR
-ssim_value - DECIMAL(6,4) - Valor SSIM
-vmaf_score - DECIMAL(6,3) - Puntuación VMAF
-bitrate_efficiency - DECIMAL(8,4) - Eficiencia bitrate
-visual_quality_score - DECIMAL(5,2) - Calidad visual
-audio_quality_score - DECIMAL(5,2) - Calidad audio
-analysis_timestamp - TIMESTAMP - Momento análisis
-metric_version - VARCHAR(20) - Versión algoritmo
-analysis_duration_seconds - INT - Tiempo análisis
-
-FFMPEG_COMMANDS Comandos FFmpeg utilizados
-
-command_id - BIGINT - Identificador único - CLAVE PRIMARIA
-job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs, UNIQUE
-full_command_string - TEXT - Comando completo
-input_filters - JSON - Filtros entrada
-video_filters - JSON - Filtros video
-audio_filters - JSON - Filtros audio
-output_parameters - JSON - Parámetros salida
-hardware_acceleration - VARCHAR(50) - Aceleración hardware
-thread_count - TINYINT - Número hilos
-memory_usage_mb - INT - Uso memoria
-command_version - VARCHAR(20) - Versión comando
-created_at - TIMESTAMP - Fecha creación
-
-PROCESSING_ERRORS Errores durante procesamiento
-
-error_id - BIGINT - Identificador único - CLAVE PRIMARIA
-job_id - BIGINT - Referencia trabajo - CLAVE FORÁNEA → encoding_jobs
-error_code - VARCHAR(50) - Código error
-error_message - TEXT - Mensaje error
-error_timestamp - TIMESTAMP - Momento error
-ffmpeg_output - TEXT - Salida FFmpeg
-system_resources_at_error - JSON - Estado recursos
-recovery_action - VARCHAR(100) - Acción recuperación
-is_resolved - BOOLEAN - Error resuelto
-resolved_timestamp - TIMESTAMP - Momento resolución
-resolved_by - VARCHAR(100) - Usuario resolvió
+| Tier | Cuota Mensual | Características |
+|------|---------------|-----------------|
+| **Basic** | 100-500 GB | Productoras pequeñas e independientes |
+| **Professional** | 500-2000 GB | Empresas medianas con necesidades regulares |
+| **Enterprise** | 3000-5000 GB | Grandes plataformas de streaming |
 
 
-CODEC_PERFORMANCE Métricas rendimiento de códecs
+---
 
-performance_id - BIGINT - Identificador único - CLAVE PRIMARIA
-codec_name - VARCHAR(50) - Nombre códec
-worker_id - INT - Referencia worker - CLAVE FORÁNEA → processing_workers
-input_resolution - VARCHAR(20) - Resolución entrada
-encoding_speed_fps - DECIMAL(8,3) - Velocidad codificación
-cpu_utilization - DECIMAL(5,2) - Utilización CPU
-memory_usage_mb - INT - Uso memoria
-gpu_utilization - DECIMAL(5,2) - Utilización GPU
-benchmark_date - TIMESTAMP - Fecha benchmark
-test_duration_seconds - INT - Duración prueba
-quality_setting - DECIMAL(4,2) - Configuración calidad
-sample_file_type - VARCHAR(50) - Tipo archivo prueba
+## LISTADO DE TABLAS
 
+### Resumen General
 
-Objetos de Base de Datos
-VISTAS
-1. vw_dashboard_trabajos_activos
-Objetivo: Proporcionar una vista consolidada del estado actual de todos los trabajos en procesamiento para monitoreo en tiempo real.
-Tablas involucradas:
+El sistema cuenta con **15 tablas** que cumplen todos los requisitos:
 
-encoding_jobs
-source_files
-encoding_profiles
-processing_workers
+| # | Tabla | Tipo | Registros | Descripción |
+|---|-------|------|-----------|-------------|
+| 1 | users | Dimensión | 10 | Usuarios del sistema |
+| 2 | clients | Dimensión | 6 | Clientes/Empresas |
+| 3 | projects | Dimensión | 8 | Proyectos de video |
+| 4 | storage_locations | Dimensión | 6 | Ubicaciones de almacenamiento |
+| 5 | source_files | **Transaccional** | 15 | Archivos de video originales |
+| 6 | encoding_profiles | Dimensión | 12 | Perfiles de codificación |
+| 7 | processing_workers | Dimensión | 10 | Servidores de procesamiento |
+| 8 | encoding_jobs | **Transaccional** | 18 | Trabajos de codificación |
+| 9 | transcoded_outputs | Dimensión | 11 | Archivos transcodificados |
+| 10 | quality_metrics | **Hechos** | 11 | Métricas de calidad |
+| 11 | ffmpeg_commands | Dimensión | 11 | Comandos FFmpeg ejecutados |
+| 12 | processing_errors | Dimensión | 3 | Errores de procesamiento |
+| 13 | codec_performance | **Hechos** | 25 | Benchmarks de rendimiento |
+| 14 | audit_logs | Transaccional | 12 | Registro de auditoría |
+| 15 | notifications | Transaccional | 14 | Notificaciones a usuarios |
 
-Descripción: Combina información de trabajos, archivos fuente, perfiles y workers. Incluye cálculo de tiempo de procesamiento y filtra por trabajos activos ('queued', 'processing'). Ordenado por prioridad descendente y fecha de encolado.
-Campos principales:
+### Descripción Detallada de Tablas
 
-Estado del trabajo y progreso
-Información del archivo origen
-Perfil de codificación aplicado
-Worker asignado y su estado
-Tiempos estimados y reales
+#### 🔹 TABLA 1: USERS
+**Propósito:** Gestiona los usuarios que interactúan con el sistema.
 
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| user_id | INT (PK) | Identificador único |
+| username | VARCHAR(100) UNIQUE | Nombre de usuario |
+| email | VARCHAR(255) UNIQUE | Correo electrónico |
+| full_name | VARCHAR(255) | Nombre completo |
+| password_hash | VARCHAR(255) | Contraseña encriptada |
+| user_role | ENUM | Rol: admin, encoder, analyst, client, viewer |
+| is_active | BOOLEAN | Usuario activo |
+| last_login | TIMESTAMP | Último inicio de sesión |
+| created_at, updated_at | TIMESTAMP | Fechas de auditoría |
 
-2. vw_metricas_calidad_completas
-Objetivo: Consolidar todas las métricas de calidad con información del trabajo y archivo original para análisis comparativo.
-Tablas involucradas:
+---
 
-quality_metrics
-transcoded_outputs
-encoding_jobs
-source_files
-encoding_profiles
+#### 🔹 TABLA 2: CLIENTS
+**Propósito:** Administra empresas/organizaciones que usan el servicio.
 
-Descripción: Permite análisis comparativo de calidad entre diferentes perfiles y códecs. Incluye categorización automática de calidad basada en VMAF (Excelente, Muy Buena, Buena, Aceptable, Baja). Solo muestra trabajos completados.
-Campos principales:
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| client_id | INT (PK) | Identificador único |
+| client_name | VARCHAR(255) | Nombre del cliente |
+| company_name | VARCHAR(255) | Nombre de la empresa |
+| subscription_tier | ENUM | Tipo: basic, professional, enterprise |
+| monthly_quota_gb | INT | Cuota mensual en GB |
+| used_quota_gb | DECIMAL(10,2) | Cuota utilizada |
+| account_manager_id | INT (FK→users) | Account manager asignado |
+| contract_start_date | DATE | Inicio de contrato |
+| contract_end_date | DATE | Fin de contrato |
+| is_active | BOOLEAN | Cliente activo |
 
-Métricas PSNR, SSIM, VMAF
-Comparación archivo original vs transcodificado
-Eficiencia de bitrate y ratio de compresión
-Categoría de calidad calculada
+---
 
+#### 🔹 TABLA 3: PROJECTS
+**Propósito:** Agrupa archivos de video organizados por cliente.
 
-3. vw_rendimiento_workers
-Objetivo: Analizar el rendimiento y utilización de cada worker en el sistema.
-Tablas involucradas:
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| project_id | INT (PK) | Identificador único |
+| project_name | VARCHAR(255) | Nombre del proyecto |
+| project_code | VARCHAR(50) UNIQUE | Código único del proyecto |
+| client_id | INT (FK→clients) | Cliente propietario |
+| project_status | ENUM | Estado: active, on_hold, completed, cancelled |
+| priority_level | TINYINT | Prioridad (1-10) |
+| budget_allocated | DECIMAL(12,2) | Presupuesto asignado |
+| budget_spent | DECIMAL(12,2) | Presupuesto gastado |
+| created_by_user_id | INT (FK→users) | Usuario creador |
 
-processing_workers
-encoding_jobs
-transcoded_outputs
+---
 
-Descripción: Agrega estadísticas de trabajos completados, tiempos promedio y eficiencia por worker. Calcula tasa de éxito, horas totales de procesamiento y estado de conexión (minutos desde último heartbeat).
-Campos principales:
+#### 🔹 TABLA 4: STORAGE_LOCATIONS
+**Propósito:** Gestiona ubicaciones de almacenamiento (cloud y local).
 
-Especificaciones del worker (CPU, RAM, GPU)
-Total de trabajos procesados
-Tasa de éxito/fallo
-Tiempos promedio de codificación
-Estado de disponibilidad
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| location_id | INT (PK) | Identificador único |
+| location_name | VARCHAR(100) UNIQUE | Nombre de ubicación |
+| location_type | ENUM | Tipo: local, s3, azure, gcp, nas |
+| base_path | VARCHAR(500) | Ruta base |
+| total_capacity_gb | BIGINT | Capacidad total |
+| used_capacity_gb | DECIMAL(12,2) | Capacidad usada |
+| is_default | BOOLEAN | Ubicación por defecto |
 
+---
 
-4. vw_historial_errores_recientes
-Objetivo: Monitorear errores recientes para identificar patrones y problemas sistemáticos.
-Tablas involucradas:
+#### 🔹 TABLA 5: SOURCE_FILES ⭐ TRANSACCIONAL
+**Propósito:** Almacena información de archivos de video originales.
 
-processing_errors
-encoding_jobs
-source_files
-processing_workers
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| source_file_id | BIGINT (PK) | Identificador único |
+| filename | VARCHAR(255) | Nombre del archivo |
+| file_path | VARCHAR(500) UNIQUE | Ruta del archivo |
+| file_size_bytes | BIGINT | Tamaño en bytes |
+| duration_seconds | DECIMAL(10,3) | Duración del video |
+| checksum_md5 | CHAR(32) UNIQUE | Hash MD5 |
+| original_codec | VARCHAR(50) | Códec original |
+| original_resolution | VARCHAR(20) | Resolución original |
+| original_bitrate | BIGINT | Bitrate original |
+| **client_id** | **INT (FK→clients)** | **Cliente propietario** |
+| **project_id** | **INT (FK→projects)** | **Proyecto asociado** |
+| **uploaded_by_user_id** | **INT (FK→users)** | **Usuario que subió** |
+| **storage_location_id** | **INT (FK→storage_locations)** | **Ubicación almacenamiento** |
 
-Descripción: Muestra errores de los últimos 30 días con información contextual del trabajo. Incluye cálculo de tiempo sin resolver y acciones de recuperación.
-Campos principales:
+---
 
-Código y mensaje de error
-Archivo y worker afectado
-Estado de resolución
-Tiempo transcurrido sin resolver
+#### 🔹 TABLA 6: ENCODING_PROFILES
+**Propósito:** Define perfiles de codificación disponibles.
 
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| profile_id | INT (PK) | Identificador único |
+| profile_name | VARCHAR(100) UNIQUE | Nombre del perfil |
+| target_codec | VARCHAR(50) | Códec destino |
+| target_resolution | VARCHAR(20) | Resolución objetivo |
+| target_bitrate | BIGINT | Bitrate objetivo |
+| quality_setting | DECIMAL(4,2) | Configuración calidad (CRF) |
+| ffmpeg_preset | VARCHAR(20) | Preset FFmpeg |
+| is_active | BOOLEAN | Perfil activo |
 
-FUNCIONES
-1. fn_calcular_eficiencia_compresion(job_id)
-Retorna: DECIMAL(5,2) - Porcentaje de reducción de tamaño
-Objetivo: Calcular el porcentaje de reducción de tamaño tras la compresión comparando el archivo original con el transcodificado.
-Parámetros:
+---
 
-p_job_id (BIGINT): ID del trabajo de codificación
+#### 🔹 TABLA 7: PROCESSING_WORKERS
+**Propósito:** Servidores disponibles para procesamiento de video.
 
-Lógica:
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| worker_id | INT (PK) | Identificador único |
+| worker_name | VARCHAR(100) UNIQUE | Nombre del worker |
+| cpu_cores | TINYINT | Núcleos CPU |
+| ram_gb | SMALLINT | Memoria RAM en GB |
+| gpu_model | VARCHAR(100) | Modelo de GPU |
+| max_concurrent_jobs | TINYINT | Máximo trabajos concurrentes |
+| current_load | TINYINT | Carga actual |
+| worker_status | ENUM | Estado: active, maintenance, offline |
+| worker_type | ENUM | Tipo: cpu, gpu, hybrid |
+| supported_codecs | JSON | Códecs soportados |
 
-Obtiene tamaño del archivo original desde source_files
-Obtiene tamaño del archivo transcodificado desde transcoded_outputs
-Calcula: ((tamaño_original - tamaño_comprimido) / tamaño_original) * 100
-Retorna 0.00 si hay valores NULL o inválidos
+**Constraint:** `current_load <= max_concurrent_jobs`
 
-Ejemplo de uso:
+---
+
+#### 🔹 TABLA 8: ENCODING_JOBS ⭐ TRANSACCIONAL
+**Propósito:** Tabla central que gestiona trabajos de codificación.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| job_id | BIGINT (PK) | Identificador único |
+| source_file_id | BIGINT (FK→source_files) | Archivo fuente |
+| profile_id | INT (FK→encoding_profiles) | Perfil de codificación |
+| worker_id | INT (FK→processing_workers) | Worker asignado |
+| job_priority | TINYINT | Prioridad (1-10) |
+| job_status | ENUM | Estado: queued, processing, completed, failed, cancelled |
+| queued_timestamp | TIMESTAMP | Momento encolado |
+| started_timestamp | TIMESTAMP | Momento inicio |
+| completed_timestamp | TIMESTAMP | Momento finalización |
+| actual_duration | INT | Duración real (segundos) |
+| retry_count | TINYINT | Número de reintentos |
+| progress_percentage | DECIMAL(5,2) | Porcentaje progreso |
+| **created_by_user_id** | **INT (FK→users)** | **Usuario creador** |
+
+**Constraint:** `retry_count <= max_retries`
+
+---
+
+#### 🔹 TABLA 9: TRANSCODED_OUTPUTS
+**Propósito:** Archivos generados tras la codificación.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| output_id | BIGINT (PK) | Identificador único |
+| job_id | BIGINT (FK→encoding_jobs) | Trabajo asociado |
+| output_filename | VARCHAR(255) | Nombre archivo generado |
+| output_path | VARCHAR(500) UNIQUE | Ruta del archivo |
+| output_size_bytes | BIGINT | Tamaño en bytes |
+| actual_bitrate | BIGINT | Bitrate real alcanzado |
+| encoding_time_seconds | INT | Tiempo de codificación |
+| compression_ratio | DECIMAL(8,4) | Ratio de compresión |
+| output_checksum | CHAR(32) UNIQUE | Hash MD5 del output |
+
+---
+
+#### 🔹 TABLA 10: QUALITY_METRICS ⭐ TABLA DE HECHOS
+**Propósito:** Métricas de calidad calculadas para cada video.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| metric_id | BIGINT (PK) | Identificador único |
+| output_id | BIGINT (FK→transcoded_outputs) | Salida asociada |
+| psnr_value | DECIMAL(6,3) | PSNR - Peak Signal-to-Noise Ratio |
+| ssim_value | DECIMAL(6,4) | SSIM - Structural Similarity Index (0-1) |
+| vmaf_score | DECIMAL(6,3) | VMAF - Video Multimethod Assessment (0-100) |
+| visual_quality_score | DECIMAL(5,2) | Calidad visual (0-10) |
+| audio_quality_score | DECIMAL(5,2) | Calidad audio (0-10) |
+| analysis_timestamp | TIMESTAMP | Momento del análisis |
+
+**Notas sobre métricas:**
+- **PSNR**: Valores típicos 30-50 dB (mayor es mejor)
+- **SSIM**: 0-1, donde 1 es idéntico al original
+- **VMAF**: 0-100, métrica desarrollada por Netflix
+
+---
+
+#### 🔹 TABLA 11: FFMPEG_COMMANDS
+**Propósito:** Comandos FFmpeg ejecutados para cada trabajo.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| command_id | BIGINT (PK) | Identificador único |
+| job_id | BIGINT (FK→encoding_jobs) UNIQUE | Trabajo asociado |
+| full_command_string | TEXT | Comando completo ejecutado |
+| input_filters | JSON | Filtros de entrada |
+| video_filters | JSON | Filtros de video |
+| hardware_acceleration | VARCHAR(50) | Aceleración hardware usada |
+
+---
+
+#### 🔹 TABLA 12: PROCESSING_ERRORS
+**Propósito:** Registro de errores durante procesamiento.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| error_id | BIGINT (PK) | Identificador único |
+| job_id | BIGINT (FK→encoding_jobs) | Trabajo afectado |
+| error_code | VARCHAR(50) | Código de error |
+| error_message | TEXT | Mensaje de error |
+| error_timestamp | TIMESTAMP | Momento del error |
+| recovery_action | VARCHAR(100) | Acción de recuperación |
+| is_resolved | BOOLEAN | Error resuelto |
+
+---
+
+#### 🔹 TABLA 13: CODEC_PERFORMANCE ⭐ TABLA DE HECHOS
+**Propósito:** Métricas de rendimiento de códecs en workers.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| performance_id | BIGINT (PK) | Identificador único |
+| codec_name | VARCHAR(50) | Nombre del códec |
+| worker_id | INT (FK→processing_workers) | Worker ejecutor |
+| encoding_speed_fps | DECIMAL(8,3) | Velocidad codificación (FPS) |
+| cpu_utilization | DECIMAL(5,2) | Utilización CPU (%) |
+| gpu_utilization | DECIMAL(5,2) | Utilización GPU (%) |
+| benchmark_date | TIMESTAMP | Fecha del benchmark |
+
+---
+
+#### 🔹 TABLA 14: AUDIT_LOGS ⭐ TRANSACCIONAL
+**Propósito:** Trazabilidad completa de acciones en el sistema.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| log_id | BIGINT (PK) | Identificador único |
+| user_id | INT (FK→users) | Usuario que realizó acción |
+| action_type | ENUM | Tipo: create, update, delete, login, upload, etc. |
+| table_name | VARCHAR(100) | Tabla afectada |
+| record_id | BIGINT | ID del registro afectado |
+| old_values | JSON | Valores anteriores |
+| new_values | JSON | Valores nuevos |
+| ip_address | VARCHAR(45) | Dirección IP |
+| action_timestamp | TIMESTAMP | Momento de la acción |
+
+---
+
+#### 🔹 TABLA 15: NOTIFICATIONS ⭐ TRANSACCIONAL
+**Propósito:** Sistema de notificaciones para eventos relevantes.
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| notification_id | BIGINT (PK) | Identificador único |
+| user_id | INT (FK→users) | Usuario destinatario |
+| notification_type | ENUM | Tipo: job_completed, job_failed, quota_warning, etc. |
+| title | VARCHAR(255) | Título notificación |
+| message | TEXT | Mensaje completo |
+| related_job_id | BIGINT (FK→encoding_jobs) | Trabajo relacionado |
+| priority | ENUM | Prioridad: low, medium, high, critical |
+| is_read | BOOLEAN | Notificación leída |
+| notification_timestamp | TIMESTAMP | Momento de creación |
+
+---
+
+## OBJETOS DE BASE DE DATOS
+
+### Resumen de Objetos Creados
+
+| Tipo | Cantidad |
+|------|----------|
+| **Vistas** | 5 |
+| **Funciones** | 3 |
+| **Stored Procedures** | 3 |
+| **Triggers** | 4 |
+
+---
+
+### VISTAS (VIEWS)
+
+#### VISTA 1: VW_DASHBOARD_TRABAJOS_ACTIVOS
+**Objetivo:** Vista consolidada de trabajos en procesamiento para monitoreo en tiempo real.
+
+**Tablas involucradas:** encoding_jobs, source_files, encoding_profiles, processing_workers, clients, projects
+
+**Campos principales:**
+- Estado del trabajo y progreso
+- Información del archivo origen
+- Perfil de codificación aplicado
+- Worker asignado
+- Cliente y proyecto asociados
+
+**Ejemplo de uso:**
+```sql
+SELECT * FROM vw_dashboard_trabajos_activos;
+SELECT * FROM vw_dashboard_trabajos_activos WHERE cliente = 'Netflix Originals';
+```
+
+---
+
+#### VISTA 2: VW_METRICAS_CALIDAD_COMPLETAS
+**Objetivo:** Consolidar métricas de calidad con información contextual para análisis comparativo.
+
+**Tablas involucradas:** quality_metrics, transcoded_outputs, encoding_jobs, source_files, encoding_profiles, clients, projects
+
+**Campos principales:**
+- Métricas PSNR, SSIM, VMAF
+- Comparación original vs transcodificado
+- Ratio de compresión y eficiencia
+- **Categoría de calidad automática:**
+  - VMAF ≥ 95: **Excelente**
+  - VMAF ≥ 85: **Muy Buena**
+  - VMAF ≥ 70: **Buena**
+  - VMAF ≥ 50: **Aceptable**
+  - VMAF < 50: **Baja**
+
+**Ejemplo de uso:**
+```sql
+SELECT * FROM vw_metricas_calidad_completas WHERE categoria_calidad = 'Excelente';
+```
+
+---
+
+#### VISTA 3: VW_RENDIMIENTO_WORKERS
+**Objetivo:** Analizar rendimiento y utilización de cada worker.
+
+**Tablas involucradas:** processing_workers, encoding_jobs, transcoded_outputs
+
+**Campos principales:**
+- Especificaciones del worker (CPU, RAM, GPU)
+- Total trabajos procesados
+- Tasa de éxito/fallo
+- Tiempos promedio de codificación
+- Estado de disponibilidad
+
+**Ejemplo de uso:**
+```sql
+SELECT * FROM vw_rendimiento_workers ORDER BY tasa_exito_porcentaje DESC;
+```
+
+---
+
+#### VISTA 4: VW_HISTORIAL_ERRORES_RECIENTES
+**Objetivo:** Monitorear errores recientes para identificar patrones.
+
+**Tablas involucradas:** processing_errors, encoding_jobs, source_files, processing_workers
+
+**Descripción:** Muestra errores de los últimos 30 días con información contextual.
+
+**Ejemplo de uso:**
+```sql
+SELECT * FROM vw_historial_errores_recientes WHERE resuelto = FALSE;
+```
+
+---
+
+#### VISTA 5: VW_DASHBOARD_CLIENTES ⭐ NUEVA
+**Objetivo:** Vista consolidada de actividad y uso por cliente para gestión de cuentas.
+
+**Tablas involucradas:** clients, users, projects, source_files, encoding_jobs, transcoded_outputs, quality_metrics
+
+**Campos principales:**
+- Información del cliente y suscripción
+- Account manager asignado
+- Control de cuota mensual (GB usados vs disponibles)
+- Estadísticas de proyectos y archivos
+- Trabajos procesados (completados, fallidos, activos)
+- Métricas de calidad promedio
+- **Estado de cuenta con alertas automáticas:**
+  - `"Alerta: Cuota casi agotada"` (≥90% usado)
+  - `"Advertencia: 75% de cuota usada"` (≥75% usado)
+  - `"Renovación próxima"` (≤30 días para vencimiento)
+  - `"Normal"` (sin alertas)
+
+**Ejemplo de uso:**
+```sql
+SELECT * FROM vw_dashboard_clientes WHERE estado_cuenta LIKE '%Alerta%';
+SELECT nombre_cliente, porcentaje_cuota_usada, trabajos_completados 
+FROM vw_dashboard_clientes 
+ORDER BY porcentaje_cuota_usada DESC;
+```
+
+---
+
+### FUNCIONES (FUNCTIONS)
+
+#### FUNCIÓN 1: FN_CALCULAR_EFICIENCIA_COMPRESION
+**Retorna:** DECIMAL(5,2) - Porcentaje de reducción de tamaño
+
+**Parámetro:** `p_job_id` (BIGINT)
+
+**Descripción:** Calcula el porcentaje de reducción de tamaño tras la compresión.
+
+**Fórmula:** `((tamaño_original - tamaño_comprimido) / tamaño_original) * 100`
+
+**Ejemplo:**
+```sql
 SELECT job_id, fn_calcular_eficiencia_compresion(job_id) AS eficiencia_porcentaje
-FROM encoding_jobs 
-WHERE job_status = 'completed';
+FROM encoding_jobs WHERE job_status = 'completed' LIMIT 10;
+```
 
-2. fn_obtener_tiempo_espera_estimado(prioridad)
-Retorna: INT - Minutos estimados de espera
-Objetivo: Estimar tiempo de espera para trabajos en cola según su prioridad.
-Parámetros:
+---
 
-p_prioridad (TINYINT): Prioridad del trabajo (1-10)
+#### FUNCIÓN 2: FN_OBTENER_TIEMPO_ESPERA_ESTIMADO
+**Retorna:** INT - Minutos estimados de espera
 
-Lógica:
+**Parámetro:** `p_prioridad` (TINYINT 1-10)
 
-Cuenta trabajos en cola con prioridad >= a la especificada
-Obtiene capacidad total de workers activos
-Calcula tiempo promedio de procesamiento (últimos 7 días)
-Estima: (trabajos_adelante * tiempo_promedio) / (capacidad_total * 60)
+**Descripción:** Estima tiempo de espera para trabajos en cola según prioridad.
 
-Ejemplo de uso:
+**Lógica:**
+1. Cuenta trabajos en cola con prioridad >= especificada
+2. Obtiene capacidad total de workers activos
+3. Calcula tiempo promedio (últimos 7 días)
+4. Estima: `(trabajos_adelante * tiempo_promedio) / (capacidad_total * 60)`
+
+**Ejemplo:**
+```sql
 SELECT fn_obtener_tiempo_espera_estimado(8) AS minutos_espera_prioridad_8;
+```
 
-3. fn_verificar_disponibilidad_worker(worker_id)
-Retorna: TINYINT - 1 (disponible) o 0 (no disponible)
-Objetivo: Verificar si un worker específico está disponible para aceptar nuevos trabajos.
-Parámetros:
+---
 
-p_worker_id (INT): ID del worker a verificar
+#### FUNCIÓN 3: FN_VERIFICAR_DISPONIBILIDAD_WORKER
+**Retorna:** TINYINT - 1 (disponible) o 0 (no disponible)
 
-Lógica:
+**Parámetro:** `p_worker_id` (INT)
 
-Obtiene estado, carga actual y capacidad máxima del worker
-Verifica si estado = 'active' y carga_actual < max_jobs
-Retorna 1 si disponible, 0 en caso contrario
+**Descripción:** Verifica si un worker está disponible para nuevos trabajos.
 
-Ejemplo de uso:
+**Criterios:** Estado='active' AND carga_actual < max_jobs
+
+**Ejemplo:**
+```sql
 SELECT worker_id, worker_name, fn_verificar_disponibilidad_worker(worker_id) AS disponible
 FROM processing_workers;
+```
 
-STORED PROCEDURES
-1. sp_asignar_trabajo_a_worker(job_id)
-Objetivo: Asignar automáticamente un trabajo en cola al worker más apropiado.
-Parámetros:
+---
 
-p_job_id (BIGINT): ID del trabajo a asignar
+### STORED PROCEDURES
 
-Tablas afectadas:
+#### PROCEDIMIENTO 1: SP_ASIGNAR_TRABAJO_A_WORKER
+**Parámetro:** `p_job_id` (BIGINT)
 
-encoding_jobs (UPDATE)
-processing_workers (UPDATE - incrementa current_load)
+**Objetivo:** Asignar automáticamente un trabajo al worker más apropiado.
 
-Descripción:
-Selecciona el worker óptimo basándose en:
+**Criterios de selección:**
+1. Estado activo
+2. Capacidad disponible
+3. Soporte del códec requerido
+4. Mayor capacidad disponible
+5. Mayor número de CPU cores
 
-Estado activo
-Capacidad disponible
-Soporte del códec requerido
-Mayor capacidad disponible (max_jobs - current_load)
-Mayor número de CPU cores
+**Tablas afectadas:**
+- encoding_jobs (UPDATE)
+- processing_workers (UPDATE - incrementa current_load)
 
-Actualiza el trabajo a estado 'processing' y asigna el worker, incrementando su carga.
-Ejemplo de uso:
+**Ejemplo:**
+```sql
 CALL sp_asignar_trabajo_a_worker(13);
-Salida:
+-- Salida: "Trabajo 13 asignado exitosamente al worker 5"
+```
 
-resultado: Mensaje de éxito o error
-worker_id: ID del worker asignado (o NULL si no hay disponibles)
+---
 
+#### PROCEDIMIENTO 2: SP_REPORTE_RENDIMIENTO_PERIODO
+**Parámetros:** `p_fecha_inicio` (DATETIME), `p_fecha_fin` (DATETIME)
 
-2. sp_reporte_rendimiento_periodo(fecha_inicio, fecha_fin)
-Objetivo: Generar reporte completo de rendimiento del sistema en un período específico.
-Parámetros:
+**Objetivo:** Generar reporte completo de rendimiento del sistema.
 
-p_fecha_inicio (DATETIME): Fecha inicio del período
-p_fecha_fin (DATETIME): Fecha fin del período
+**Retorna 4 conjuntos de resultados:**
+1. **RESUMEN_TRABAJOS** - Total, completados, fallidos, tasa de éxito
+2. **METRICAS_CALIDAD** - Promedios de VMAF, PSNR, SSIM
+3. **RENDIMIENTO_POR_PERFIL** - Estadísticas por perfil de codificación
+4. **TOP_WORKERS** - Top 5 workers más productivos
 
-Tablas consultadas:
+**Ejemplo:**
+```sql
+CALL sp_reporte_rendimiento_periodo('2025-01-01 00:00:00', '2025-10-17 23:59:59');
+```
 
-encoding_jobs
-transcoded_outputs
-quality_metrics
-encoding_profiles
-processing_workers
+---
 
-Descripción:
-Retorna 4 conjuntos de resultados:
+#### PROCEDIMIENTO 3: SP_REINTENTAR_TRABAJOS_FALLIDOS
+**Parámetro:** `p_horas_limite` (INT)
 
-RESUMEN_TRABAJOS: Total, completados, fallidos, cancelados, duración promedio, tasa de éxito
-METRICAS_CALIDAD: Promedios de VMAF, PSNR, SSIM, calidad visual, eficiencia
-RENDIMIENTO_POR_PERFIL: Estadísticas por perfil de codificación
-TOP_WORKERS: Top 5 workers más productivos
+**Objetivo:** Reintentar automáticamente trabajos fallidos elegibles.
 
-Ejemplo de uso:
-CALL sp_reporte_rendimiento_periodo('2025-01-15 00:00:00', '2025-01-30 23:59:59');
+**Acciones:**
+- Cambia status a 'queued'
+- Limpia worker_id
+- Incrementa retry_count
+- Resetea progress_percentage a 0
+- Solo procesa si retry_count < max_retries
 
-3. sp_reintentar_trabajos_fallidos(horas_limite)
-Objetivo: Reintentar automáticamente trabajos fallidos que no hayan superado el límite de reintentos.
-Parámetros:
-
-p_horas_limite (INT): Límite de horas desde el fallo para considerar el reintento
-
-Tablas afectadas:
-
-encoding_jobs (UPDATE)
-
-Descripción:
-Resetea el estado de trabajos fallidos elegibles:
-
-Cambia status a 'queued'
-Limpia worker_id y started_timestamp
-Incrementa retry_count
-Resetea progress_percentage a 0
-Solo procesa trabajos donde retry_count < max_retries
-
-Ejemplo de uso:
+**Ejemplo:**
+```sql
 CALL sp_reintentar_trabajos_fallidos(48);
-Salida:
+-- Salida: "Se reintentarán 2 trabajos fallidos"
+```
 
-trabajos_reintentados: Número de trabajos reintentados
-mensaje: Mensaje descriptivo
+---
 
+### TRIGGERS
 
-TRIGGERS
-1. trg_validar_worker_antes_asignacion
-Tipo: BEFORE UPDATE
-Tabla: encoding_jobs
-Objetivo: Validar que el worker asignado esté activo y tenga capacidad disponible antes de asignar un trabajo.
-Descripción:
-Se ejecuta antes de actualizar un encoding_job. Valida:
+#### TRIGGER 1: TRG_VALIDAR_WORKER_ANTES_ASIGNACION
+**Tipo:** BEFORE UPDATE  
+**Tabla:** encoding_jobs
 
-Worker tiene estado 'active'
-Worker tiene capacidad disponible (current_load < max_concurrent_jobs)
+**Objetivo:** Validar que el worker asignado esté activo y tenga capacidad.
 
-Genera error (SQLSTATE '45000') si alguna validación falla, cancelando la operación.
-Casos de uso:
+**Validaciones:**
+- Worker tiene estado 'active'
+- Worker tiene capacidad (current_load < max_concurrent_jobs)
 
-Prevenir asignación a workers en mantenimiento
-Prevenir sobrecarga de workers
-Garantizar integridad en la asignación automática
+**Acción:** Genera error (SQLSTATE '45000') si falla validación.
 
+---
 
-2. trg_actualizar_carga_worker_completado
-Tipo: AFTER UPDATE
-Tabla: encoding_jobs
-Objetivo: Decrementar automáticamente la carga del worker cuando un trabajo se completa.
-Descripción:
-Se ejecuta después de actualizar un encoding_job. Cuando un trabajo pasa de 'processing' a estado final ('completed', 'failed', 'cancelled'):
+#### TRIGGER 2: TRG_ACTUALIZAR_CARGA_WORKER_COMPLETADO
+**Tipo:** AFTER UPDATE  
+**Tabla:** encoding_jobs
 
-Decrementa current_load del worker en 1
-Usa GREATEST para evitar valores negativos
-Actualiza updated_at del worker
+**Objetivo:** Decrementar carga del worker cuando trabajo finaliza.
 
-Beneficio: Mantiene automáticamente la carga de workers actualizada sin intervención manual.
+**Condición:** Trabajo pasa de 'processing' a estado final (completed, failed, cancelled)
 
-3. trg_registrar_error_trabajo_fallido
-Tipo: AFTER UPDATE
-Tabla: encoding_jobs
-Objetivo: Registrar automáticamente un error cuando un trabajo cambia a estado fallido.
-Descripción:
-Se ejecuta después de actualizar un encoding_job. Cuando un trabajo cambia a estado 'failed':
+**Acción:** Decrementa current_load del worker en 1.
 
-Crea registro en processing_errors
-Usa el error_message del trabajo o mensaje por defecto
-Determina recovery_action según retry_count vs max_retries
-Marca error como no resuelto (is_resolved = FALSE)
+---
 
-Beneficio: Trazabilidad completa de errores sin necesidad de código adicional.
+#### TRIGGER 3: TRG_REGISTRAR_ERROR_TRABAJO_FALLIDO
+**Tipo:** AFTER UPDATE  
+**Tabla:** encoding_jobs
 
-4. trg_validar_metricas_calidad
-Tipo: BEFORE INSERT
-Tabla: quality_metrics
-Objetivo: Validar que las métricas de calidad estén dentro de rangos válidos antes de insertarlas.
-Descripción:
-Se ejecuta antes de insertar en quality_metrics. Valida:
+**Objetivo:** Registrar automáticamente error cuando trabajo falla.
 
-PSNR: 0-100 (típicamente 20-60 dB)
-SSIM: 0-1
-VMAF: 0-100
+**Acción:** Crea registro en processing_errors con:
+- error_code, error_message
+- recovery_action según retry_count
+- is_resolved = FALSE
 
-Establece metric_version = '1.0' por defecto si es NULL.
-Genera error (SQLSTATE '45000') si valores están fuera de rango.
-Beneficio: Garantiza integridad de datos de calidad y previene valores imposibles.
+---
+
+#### TRIGGER 4: TRG_VALIDAR_METRICAS_CALIDAD
+**Tipo:** BEFORE INSERT  
+**Tabla:** quality_metrics
+
+**Objetivo:** Validar métricas dentro de rangos válidos.
+
+**Validaciones:**
+- PSNR: 0-100
+- SSIM: 0-1
+- VMAF: 0-100
+
+**Acción:** Genera error si valores fuera de rango.
+
+---
+
+## SCRIPTS DE INSTALACIÓN
+
+### Orden de Ejecución
+
+Los scripts deben ejecutarse en el siguiente orden:
+
+```
+1. 01_video_processing_pipeline.sql
+   ✓ Crea la base de datos
+   ✓ Crea las 15 tablas en orden correcto
+   ✓ Crea índices de optimización
+
+2. 02_vistas_funciones_sp_triggers.sql
+   ✓ Crea 5 vistas
+   ✓ Crea 3 funciones
+   ✓ Crea 3 stored procedures
+   ✓ Crea 4 triggers
+
+3. 03_insercion_datos.sql
+   ✓ Inserta datos de prueba en las 15 tablas
+   ✓ Incluye consultas de verificación
+   ✓ Incluye ejemplos de uso
+```
+---
+
+## HERRAMIENTAS Y TECNOLOGÍAS
+
+### Base de Datos
+- **MySQL 8.0+** - Sistema de gestión de base de datos relacional
+- **MySQL Workbench** - Herramienta visual para diseño y administración
+
+### Características Utilizadas
+- **Foreign Keys** - Integridad referencial entre tablas
+- **Constraints** - CHECK, UNIQUE para validación
+- **Indexes** - Optimización de consultas
+- **JSON** - Almacenamiento de metadatos flexibles
+- **ENUM** - Tipos de datos enumerados
+- **Triggers** - Automatización de reglas de negocio
+- **Stored Procedures** - Lógica de negocio en servidor
+- **Views** - Vistas para reporting
+
+### Herramientas Externas Integradas
+- **FFmpeg** - Motor de transcodificación de video
+- **VMAF** - Métrica de calidad de video (Netflix)
+- **AWS S3, Azure Blob, Google Cloud Storage** - Almacenamiento cloud
+
+### Glosario de Términos Técnicos
+
+**Términos de Video:**
+- **Bitrate:** Cantidad de datos por unidad de tiempo (bits/segundo)
+- **Codec:** Algoritmo de compresión/descompresión (H.264, H.265, VP9)
+- **CRF:** Constant Rate Factor - calidad constante
+- **FFmpeg:** Suite de software para manipulación multimedia
+- **FPS:** Frames Per Second - cuadros por segundo
+- **Transcodificación:** Convertir video de un formato a otro
+
+**Métricas de Calidad:**
+- **PSNR:** Peak Signal-to-Noise Ratio (30-50 dB típico)
+- **SSIM:** Structural Similarity Index (0-1, 1=idéntico)
+- **VMAF:** Video Multimethod Assessment Fusion (0-100, Netflix)
+
+---
+
+## CASOS DE USO
+
+### Caso 1: Netflix Sube Nuevo Contenido
+1. Usuario Netflix inicia sesión (client role)
+2. Crea proyecto "Stranger Things Season 6"
+3. Sube archivo 4K original (15 GB)
+4. Sistema registra en source_files con client_id=1
+5. Crea 5 trabajos de codificación (4K, Full HD, HD, SD, Mobile)
+6. SP_ASIGNAR_TRABAJO_A_WORKER asigna a workers
+7. Workers procesan archivos
+8. Sistema calcula métricas VMAF, PSNR, SSIM
+9. Notificaciones enviadas cuando completa
+10. Audit log registra todas las acciones
+
+### Caso 2: Cliente Excede Cuota
+1. Cliente procesa archivos regularmente
+2. Sistema actualiza used_quota_gb
+3. VW_DASHBOARD_CLIENTES detecta 91% usado
+4. Estado_cuenta = "Alerta: Cuota casi agotada"
+5. Notificación automática a cliente y account manager
+6. Cliente actualiza plan de 'professional' a 'enterprise'
+7. monthly_quota_gb incrementa de 2000 GB a 4000 GB
+
+### Caso 3: Trabajo Falla y Se Reintenta
+1. Trabajo #25 falla con "MEMORY_ERROR"
+2. TRG_REGISTRAR_ERROR_TRABAJO_FALLIDO crea registro
+3. Notificación enviada al encoder
+4. Admin ejecuta SP_REINTENTAR_TRABAJOS_FALLIDOS(24)
+5. Trabajo se reencola (retry_count = 1)
+6. Worker con más memoria procesa exitosamente
+7. Error marcado como resolved
